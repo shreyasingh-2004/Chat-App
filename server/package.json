@@ -4,7 +4,9 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "server": "nodemon server.js"
+    "server": "nodemon --watch server.js server.js",
+    "dev": "nodemon server.js"
+    
   },
   "type": "module",
   "author": "",
