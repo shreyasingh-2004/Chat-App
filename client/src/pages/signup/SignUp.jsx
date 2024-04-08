@@ -2,6 +2,7 @@
 import GenderCheckbox from "./GenderCheckbox";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import useSignup from "../../hooks/useSignup";
 
 
 
@@ -14,13 +15,15 @@ const SignUp = () => {
 		gender: "",
 	});
 
+	const {loading,signup}= useSignup()
+
 	const handleCheckboxChange = (gender) => {
 		setInputs({...inputs,gender})
 	}
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
-		console.log(inputs);
+		await signup(inputs)
 	};
 	return (
 		<div className='flex flex-col items-center justify-center min-w-96 mx-auto'>
@@ -58,6 +61,8 @@ const SignUp = () => {
 							type='password'
 							placeholder='Enter Password'
 							className='w-full input input-bordered h-10'
+							value={inputs.password}
+							onChange={(e) => setInputs({ ...inputs, password: e.target.value })}
 						/>
 					</div>
 
