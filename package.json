@@ -4,8 +4,8 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "server": "nodemon --watch server.js server.js",
-    "dev": "nodemon server.js"
+    "server": "nodemon server/server.js",
+    "dev": "nodemon server/server.js"
     
   },
   "type": "module",
