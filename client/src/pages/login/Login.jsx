@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import useLogin from "../../hooks/useLogin";
+import pic from "/1.png";
 
 const Login = () => {
 	const [username, setUsername] = useState("");
@@ -16,10 +17,11 @@ const Login = () => {
 	return (
 		<div className='flex flex-col items-center justify-center min-w-96 mx-auto'>
 			<div className='w-full p-6 rounded-lg shadow-md bg-gray-400 bg-clip-padding backdrop-filter backdrop-blur-lg bg-opacity-0'>
-				<h1 className='text-3xl font-semibold text-center text-gray-300'>
+				<h1 className='text-4xl text-blue-500  font-bold text-center '>
 					Login
-					<span className='text-blue-500'> ChatApp</span>
+					<span className='text-blue-500'> </span>
 				</h1>
+				<img src={pic} alt='pic' className=' py-4  w-32 h-32 mx-auto' />
 
 				<form onSubmit={handleSubmit}>
 					<div>
@@ -52,7 +54,7 @@ const Login = () => {
 					</Link>
 
 					<div>
-						<button className='btn btn-block btn-sm mt-2' disabled={loading}>
+						<button className=' rounded-2xl hover:bg-blue-600 btn-block bg-blue-500  text-lg btn-sm mt-2  text-black' disabled={loading}>
 							{loading ? <span className='loading loading-spinner '></span> : "Login"}
 						</button>
 					</div>

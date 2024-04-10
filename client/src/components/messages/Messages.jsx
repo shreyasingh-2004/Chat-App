@@ -3,6 +3,7 @@ import useGetMessages from "../../hooks/useGetMessages";
 import MessageSkeleton from "../skeletons/MessageSkeleton";
 import Message from "./Message";
 import useListenMessages from "../../hooks/useListenMessages";
+import { TiMessages } from "react-icons/ti";
 
 
 const Messages = () => {
@@ -29,7 +30,12 @@ const Messages = () => {
 
 			{loading && [...Array(3)].map((_, idx) => <MessageSkeleton key={idx} />)}
 			{!loading && messages.length === 0 && (
-				<p className='text-center'>Send a message to start the conversation</p>
+				<div className='flex flex-col items-center justify-center h-full'>
+					<p className='text-gray-200'>Send a message to start the conversation 📝
+</p>
+					<TiMessages className='text-3xl md:text-6xl text-center' />
+				</div>
+				
 			)}
 		</div>
 	);

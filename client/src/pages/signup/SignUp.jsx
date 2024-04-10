@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import GenderCheckbox from "./GenderCheckbox";
 import { useState } from "react";
 import useSignup from "../../hooks/useSignup";
+import pic from "/2.png";
 
 const SignUp = () => {
 	const [inputs, setInputs] = useState({
@@ -26,9 +27,10 @@ const SignUp = () => {
 	return (
 		<div className='flex flex-col items-center justify-center min-w-96 mx-auto'>
 			<div className='w-full p-6 rounded-lg shadow-md bg-gray-400 bg-clip-padding backdrop-filter backdrop-blur-lg bg-opacity-0'>
-				<h1 className='text-3xl font-semibold text-center text-gray-300'>
-					Sign Up <span className='text-blue-500'> ChatApp</span>
+			<h1 className='text-4xl text-blue-500  font-bold text-center '>
+					Sign Up 
 				</h1>
+				<img src={pic} alt='pic' className=' w-16 h-16 mx-auto mt-2' />
 
 				<form onSubmit={handleSubmit}>
 					<div>
@@ -94,7 +96,7 @@ const SignUp = () => {
 					</Link>
 
 					<div>
-						<button className='btn btn-block btn-sm mt-2 border border-slate-700' disabled={loading}>
+						<button className='rounded-2xl hover:bg-blue-600 btn-block bg-blue-500 text-black  text-lg btn-sm mt-2' disabled={loading}>
 							{loading ? <span className='loading loading-spinner'></span> : "Sign Up"}
 						</button>
 					</div>
