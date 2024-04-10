@@ -69,14 +69,3 @@ Real Talk is a real-time chat application built using the MERN stack (MongoDB, E
 - Notifications: Implement real-time notifications for new messages and other events.
 - Emojis and reactions: Add support for emojis and message reactions.
 
-![3](https://github.com/SarangaSiriwardhana9/RealTalk-Real-Time-Chat-App/assets/99233703/1b2cab50-8929-47a8-b634-5a890934bfe5)
-
-
-
-![1](https://github.com/SarangaSiriwardhana9/RealTalk-Real-Time-Chat-App/assets/99233703/5142ab7b-88b3-4ee3-8fbd-818f591635a7)
-![2](https://github.com/SarangaSiriwardhana9/RealTalk-Real-Time-Chat-App/assets/99233703/2a72a691-054a-4900-8a42-695ce3a9e9e3)
-
-![6](https://github.com/SarangaSiriwardhana9/RealTalk-Real-Time-Chat-App/assets/99233703/62828302-80ee-423b-9f6f-2c84eba8e86f)
-![5](https://github.com/SarangaSiriwardhana9/RealTalk-Real-Time-Chat-App/assets/99233703/1e0d870d-13d0-48f4-afc5-0f600c3c8bc2)
-
-
