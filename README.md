@@ -43,7 +43,7 @@ A full-featured WhatsApp-style chat application with real-time messaging, user a
 
 ### 1. Clone the repository
 \`\`\`bash
-git clone https://github.com/yourusername/chat-app.git
+git clone https://github.com/shreyasingh-2004/Chat-App
 cd chat-app
 \`\`\`
 
