@@ -1,0 +1,35 @@
+# dependencies
+/node_modules
+/package-lock.json
+/yarn.lock
+
+# environment variables
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# database
+*.db
+*.sqlite
+*.sqlite3
+
+# uploads
+/uploads/
+/temp/
+/tmp/
+
+# production
+/dist
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
