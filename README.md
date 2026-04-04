@@ -1,22 +1,22 @@
-# 💬 Real-Time Chat Application
+# Real-Time Chat Application
 
 A full-featured WhatsApp-style chat application with real-time messaging, user authentication, file sharing, and online status indicators.
 
-## ✨ Features
+## Features
 
-- 🔐 User Authentication (JWT)
-- 💬 Real-time messaging with Socket.IO
-- 👥 One-to-one private chats
-- 🟢 Online/Offline status indicators
-- 📁 File sharing (images, videos, documents via Cloudinary)
-- 💾 Message persistence in MongoDB
-- ✅ Read receipts (single/double ticks)
-- ⌨️ Typing indicators
-- 📱 Responsive WhatsApp-style UI
-- 🔒 End-to-end message encryption
-- 🚪 Logout functionality
+- User Authentication (JWT)
+- Real-time messaging with Socket.IO
+- One-to-one private chats
+- Online/Offline status indicators
+- File sharing (images, videos, documents via Cloudinary)
+- Message persistence in MongoDB
+- Read receipts (single/double ticks)
+- Typing indicators
+- Responsive WhatsApp-style UI
+- End-to-end message encryption
+- Logout functionality
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 - React.js
@@ -33,13 +33,13 @@ A full-featured WhatsApp-style chat application with real-time messaging, user a
 - bcryptjs for password hashing
 - CryptoJS for message encryption
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js (v14 or higher)
 - MongoDB (local or Atlas)
 - npm or yarn
 
-## 🚀 Installation
+## Installation
 
 ### 1. Clone the repository
 \`\`\`bash
@@ -85,7 +85,7 @@ npm start
 ### 7. Access the App
 Open http://localhost:3000
 
-## 📝 API Endpoints
+## API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - Register new user
@@ -110,7 +110,7 @@ Open http://localhost:3000
 5. See when messages are delivered and read (double ticks)
 6. View online/offline status of other users
 
-## 🚢 Deployment
+## Deployment
 
 ### Deploy Backend to Render/Railway
 1. Push code to GitHub
@@ -123,7 +123,7 @@ Open http://localhost:3000
 2. Set environment variables
 3. Deploy
 
-## 📁 Project Structure
+## Project Structure
 
 \`\`\`
 chat-app/
@@ -148,7 +148,7 @@ chat-app/
 └── LICENSE
 \`\`\`
 
-## 🔒 Security Features
+## Security Features
 
 - JWT token authentication
 - Password hashing with bcrypt
@@ -158,7 +158,7 @@ chat-app/
 - Input validation
 
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - WhatsApp for UI inspiration
 - Socket.IO for real-time communication
