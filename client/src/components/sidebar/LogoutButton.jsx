@@ -1,24 +1,22 @@
-/* eslint-disable no-unused-vars */
 import { BiLogOut } from "react-icons/bi";
 import useLogout from "../../hooks/useLogout";
-import { RiLogoutCircleRLine } from "react-icons/ri";
+
 const LogoutButton = () => {
-
-	const {loading,logout}= useLogout()
-
-
+	const { logout, loading } = useLogout();
+	
 	return (
-		<div className='mt-auto'>
-			{!loading ? (
-				<div className='flex items-center justify-center gap-2 mb-4 ' >
-					Logout
-				<RiLogoutCircleRLine className='w-6 h-6 text-red-700 cursor-pointer' onClick={logout} />
-				
-				</div>
+		<button 
+			className="btn btn-sm btn-circle btn-ghost text-red-500 hover:bg-red-500/10" 
+			onClick={logout}
+			disabled={loading}
+		>
+			{loading ? (
+				<span className="loading loading-spinner loading-sm"></span>
 			) : (
-				<span className='loading loading-spinner'></span>
+				<BiLogOut size={20} />
 			)}
-		</div>
+		</button>
 	);
 };
+
 export default LogoutButton;

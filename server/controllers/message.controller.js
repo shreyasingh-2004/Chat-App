@@ -1,72 +1,100 @@
-import Conversation from "../models/conversation.modal.js";
-import Message from "../models/message.model.js";
-import { getReceiverSocketId, io } from "../socket/socket.js";
+import Conversation from '../models/conversation.model.js';
+import Message from '../models/message.model.js';
+import Group from '../models/group.model.js';
 
-//send message
 export const sendMessage = async (req, res) => {
-	try {
-		const { message } = req.body;
-		const { id: receiverId } = req.params;
-		const senderId = req.user._id;
+  try {
+    const { message } = req.body;
+    const { id: receiverId } = req.params;
+    const senderId = req.user._id;
 
-		let conversation = await Conversation.findOne({
-			participants: { $all: [senderId, receiverId] },
-		});
+    console.log(`📤 sendMessage: sender=${senderId}, receiver=${receiverId}`);
 
-		if (!conversation) {
-			conversation = await Conversation.create({
-				participants: [senderId, receiverId],
-			});
-		}
+    let conversation = await Conversation.findOne({
+      participants: { $all: [senderId, receiverId] },
+    });
 
-		const newMessage = new Message({
-			senderId,
-			receiverId,
-			message,
-		});
+    if (!conversation) {
+      console.log('Creating new conversation');
+      conversation = await Conversation.create({
+        participants: [senderId, receiverId],
+      });
+    }
 
-		if (newMessage) {
-			conversation.messages.push(newMessage._id);
-		}
-		// await conversation.save();
-		// await newMessage.save();
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      message,
+    });
 
-		// this will run in parallel
-		await Promise.all([conversation.save(), newMessage.save()]);
+    conversation.messages.push(newMessage._id);
+    await Promise.all([conversation.save(), newMessage.save()]);
 
-
-		// SOCKET IO FUNCTIONALITY WILL GO HERE
-		const receiverSocketId = getReceiverSocketId(receiverId);
-		if (receiverSocketId) {
-			//io.to(<socket-id>).emit() is used to send events to a specific client
-			io.to(receiverSocketId).emit("newMessage", newMessage);
-		}
-
-		
-		res.status(201).json(newMessage);
-	} catch (error) {
-		console.log("Error in sendMessage controller: ", error.message);
-		res.status(500).json({ error: "Internal server error" });
-	}
+    console.log(`✅ Message saved: ${newMessage._id}`);
+    res.status(201).json(newMessage);
+  } catch (error) {
+    console.error("Error in sendMessage:", error);
+    res.status(500).json({ error: error.message });
+  }
 };
 
-//get messages
 export const getMessages = async (req, res) => {
-	try {
-		const { id: userToChatId } = req.params;
-		const senderId = req.user._id;
+  try {
+    const { id: userToChatId } = req.params;
+    const senderId = req.user._id;
 
-		const conversation = await Conversation.findOne({
-			participants: { $all: [senderId, userToChatId] },
-		}).populate("messages"); // NOT REFERENCE BUT ACTUAL MESSAGES
+    console.log(`📥 getMessages: between ${senderId} and ${userToChatId}`);
 
-		if (!conversation) return res.status(200).json([]);
+    const conversation = await Conversation.findOne({
+      participants: { $all: [senderId, userToChatId] },
+    }).populate("messages");
 
-		const messages = conversation.messages;
+    if (!conversation) {
+      console.log('No conversation found, returning empty array');
+      return res.status(200).json([]);
+    }
 
-		res.status(200).json(messages);
-	} catch (error) {
-		console.log("Error in getMessages controller: ", error.message);
-		res.status(500).json({ error: "Internal server error" });
-	}
+    console.log(`✅ Found ${conversation.messages.length} messages`);
+    res.status(200).json(conversation.messages);
+  } catch (error) {
+    console.error("Error in getMessages:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getGroupMessages = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.user._id;
+
+    console.log(`📥 getGroupMessages: group=${groupId}, user=${userId}`);
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    const member = group.members.find(m => m.userId.toString() === userId.toString());
+    
+    let messages;
+    if (!member) {
+      messages = await Message.find({ groupId })
+        .populate('senderId', 'fullName username profilePic')
+        .sort({ createdAt: 1 });
+      console.log(`Removed user: showing ${messages.length} messages`);
+    } else {
+      messages = await Message.find({
+        groupId,
+        createdAt: { $gte: member.joinedAt }
+      })
+        .populate('senderId', 'fullName username profilePic')
+        .sort({ createdAt: 1 });
+      console.log(`Member joined at ${member.joinedAt}: showing ${messages.length} messages`);
+    }
+    
+    res.json(messages);
+  } catch (error) {
+    console.error('Error in getGroupMessages:', error);
+    res.status(500).json({ error: error.message });
+  }
 };

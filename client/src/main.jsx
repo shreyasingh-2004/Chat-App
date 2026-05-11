@@ -1,19 +1,32 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom' // Import BrowserRouter from react-router-dom
-import App from './App.jsx'
-import './index.css'
-import { AuthContextProvider } from './context/AuthContext.jsx'
-import { SocketContextProvider } from './context/SocketContext.jsx'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import App from "./App";
+import "./index.css";
+import { AuthContextProvider } from "./context/AuthContext";
+import { SocketContextProvider } from "./context/SocketContext";
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-    <AuthContextProvider>
-      <SocketContextProvider>
-      <App />
-      </SocketContextProvider>
-    </AuthContextProvider>
-    </BrowserRouter>   
-  </React.StrictMode>,
-)
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 60000,
+			cacheTime: 300000,
+			refetchOnWindowFocus: false,
+		},
+	},
+});
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+	<React.StrictMode>
+		<BrowserRouter>
+			<QueryClientProvider client={queryClient}>
+				<AuthContextProvider>
+					<SocketContextProvider>
+						<App />
+					</SocketContextProvider>
+				</AuthContextProvider>
+			</QueryClientProvider>
+		</BrowserRouter>
+	</React.StrictMode>
+);

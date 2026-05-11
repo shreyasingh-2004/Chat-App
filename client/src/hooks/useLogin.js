@@ -3,43 +3,45 @@ import toast from "react-hot-toast";
 import { useAuthContext } from "../context/AuthContext";
 
 const useLogin = () => {
-	const [loading, setLoading] = useState(false);
-	const { setAuthUser } = useAuthContext();
+  const [loading, setLoading] = useState(false);
+  const { setAuthUser } = useAuthContext();
 
-	const login = async (username, password) => {
-		const success = handleInputErrors(username, password);
-		if (!success) return;
-		setLoading(true);
-		try {
-			const res = await fetch("/api/auth/login", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ username, password }),
-			});
+  const login = async (username, password) => {
+    if (!username || !password) {
+      toast.error("Please fill all fields");
+      return false;
+    }
 
-			const data = await res.json();
-			if (data.error) {
-				throw new Error(data.error);
-			}
+    setLoading(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${apiUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-			localStorage.setItem("chat-user", JSON.stringify(data));
-			setAuthUser(data);
-		} catch (error) {
-			toast.error(error.message);
-		} finally {
-			setLoading(false);
-		}
-	};
+      const data = await res.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-	return { loading, login };
+      localStorage.setItem("chat-user", JSON.stringify(data));
+      localStorage.setItem("token", data.token);
+      setAuthUser(data);
+      
+      toast.success("Login successful!");
+      return true;
+    } catch (error) {
+      toast.error(error.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { loading, login };
 };
+
 export default useLogin;
-
-function handleInputErrors(username, password) {
-	if (!username || !password) {
-		toast.error("Please fill in all fields");
-		return false;
-	}
-
-	return true;
-}
