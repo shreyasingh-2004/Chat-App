@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { apiFetch } from "../utils/api";
 
 export const AuthContext = createContext();
 
@@ -24,8 +25,7 @@ export const AuthContextProvider = ({ children }) => {
 
       // Optional: Verify token with backend
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const response = await fetch(`${apiUrl}/api/auth/verify`, {
+        const response = await apiFetch("/api/auth/verify", {
           headers: {
             'Authorization': `Bearer ${token}`
           }

@@ -1,24 +1,16 @@
 import useGetConversations from "../../hooks/useGetConversations";
 import useConversation from "../../zustand/useConversation";
 import Conversation from "./Conversation";
+import { toChatPartnerConversation } from "../../utils/displayUser";
 
 const Conversations = ({ onSelectChat, selectedChat }) => {
   const { loading, conversations } = useGetConversations();
   const { setSelectedConversation } = useConversation();
 
   const handleSelectChat = (conversation) => {
-    if (!conversation || !conversation._id) return;
-    
-    const userConversation = {
-      _id: conversation._id,
-      name: conversation.fullName,
-      fullName: conversation.fullName,
-      username: conversation.username,
-      profilePic: conversation.profilePic,
-      type: 'user',
-      chatType: 'user'
-    };
-    
+    const userConversation = toChatPartnerConversation(conversation);
+    if (!userConversation) return;
+
     setSelectedConversation(userConversation);
     if (onSelectChat) {
       onSelectChat(userConversation);
@@ -27,22 +19,25 @@ const Conversations = ({ onSelectChat, selectedChat }) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-32">
-        <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex h-32 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent"></div>
       </div>
     );
   }
 
   if (!conversations || conversations.length === 0) {
     return (
-      <div className="text-center py-12 px-4">
-        <p className="text-gray-500">No conversations yet</p>
+      <div className="px-4 py-12 text-center">
+        <p className="text-gray-500">No contacts found</p>
       </div>
     );
   }
 
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
+      <div className="px-4 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        Contacts ({conversations.length})
+      </div>
       {conversations.map((conversation, idx) => (
         <Conversation
           key={conversation._id}

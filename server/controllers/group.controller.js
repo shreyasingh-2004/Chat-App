@@ -1,7 +1,10 @@
+import mongoose from 'mongoose';
 import Group from '../models/group.model.js';
 import User from '../models/user.model.js';
 import Message from '../models/message.model.js';
 import { getOnlineUsersMap } from '../socket/socket.js';
+
+const displayName = (user) => user?.fullName || user?.name || user?.username || 'Someone';
 
 export const createGroup = async (req, res) => {
   try {
@@ -95,21 +98,24 @@ export const getGroupMembers = async (req, res) => {
     }
 
     const isMember = group.members.some(
-      m => m.userId._id.toString() === req.user._id.toString()
+      m => m.userId && m.userId._id.toString() === req.user._id.toString()
     );
 
     if (!isMember) {
       return res.status(403).json({ error: 'Not a member' });
     }
 
-    const members = group.members.map(m => ({
-      _id: m.userId._id,
-      fullName: m.userId.fullName,
-      username: m.userId.username,
-      profilePic: m.userId.profilePic,
-      role: m.role,
-      joinedAt: m.joinedAt
-    }));
+    // ✅ Filter out null/undefined userId entries
+    const members = group.members
+      .filter(m => m.userId) // Remove entries with null userId
+      .map(m => ({
+        _id: m.userId._id,
+        fullName: m.userId.fullName,
+        username: m.userId.username,
+        profilePic: m.userId.profilePic,
+        role: m.role,
+        joinedAt: m.joinedAt
+      }));
 
     res.json(members);
   } catch (error) {
@@ -123,75 +129,95 @@ export const addMembers = async (req, res) => {
     const { userIds } = req.body;
     const { groupId } = req.params;
     const currentUser = req.user;
-    
-    console.log(`➕ Adding members to group ${groupId}`);
-    
+
+    if (!Array.isArray(userIds)) {
+      return res.status(400).json({ error: 'userIds must be an array' });
+    }
+
     const group = await Group.findById(groupId);
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
     const isAdmin = group.members.some(
-      m => m.userId.toString() === currentUser._id.toString() && m.role === 'admin'
+      (m) => m.userId.toString() === currentUser._id.toString() && m.role === 'admin'
     );
 
     if (!isAdmin) {
       return res.status(403).json({ error: 'Only admins can add members' });
     }
 
-    const addedUsers = [];
-    const systemMessages = [];
-    
-    for (const userId of userIds) {
-      if (!group.members.some(m => m.userId.toString() === userId.toString())) {
-        const newUser = await User.findById(userId);
-        const joinedAt = new Date();
-        
-        group.members.push({ 
-          userId, 
-          role: 'member', 
-          joinedAt 
-        });
-        
-        await User.findByIdAndUpdate(userId, { $addToSet: { groups: group._id } });
-        addedUsers.push(userId);
-        
-        const systemMessage = new Message({
-          groupId: group._id,
-          isSystemMessage: true,
-          systemMessageType: 'member_added',
-          senderId: currentUser._id,
-          affectedUser: userId,
-          message: `${currentUser.fullName} added ${newUser.fullName}`,
-          status: 'sent'
-        });
-        await systemMessage.save();
-        await systemMessage.populate('senderId', 'fullName');
-        systemMessages.push(systemMessage);
-        
-        console.log(`✅ Added ${newUser.fullName} at ${joinedAt}`);
-      }
+    const existing = new Set(group.members.map((m) => m.userId.toString()));
+    const uniqueRequested = [...new Set(userIds.map((id) => String(id)))].filter(
+      (id) => id && mongoose.Types.ObjectId.isValid(id) && !existing.has(id)
+    );
+
+    const loadPopulatedGroup = () =>
+      Group.findById(group._id)
+        .populate('members.userId', 'fullName username profilePic')
+        .populate('creator', 'fullName username');
+
+    if (uniqueRequested.length === 0) {
+      const populatedGroup = await loadPopulatedGroup();
+      return res.json(populatedGroup);
     }
 
+    const foundUsers = await User.find({ _id: { $in: uniqueRequested } })
+      .select('fullName username')
+      .lean();
+
+    const foundIds = new Set(foundUsers.map((u) => u._id.toString()));
+    const toAddIds = uniqueRequested.filter((id) => foundIds.has(id));
+
+    if (toAddIds.length === 0) {
+      const populatedGroup = await loadPopulatedGroup();
+      return res.json(populatedGroup);
+    }
+
+    const joinedAt = new Date();
+    for (const id of toAddIds) {
+      group.members.push({ userId: id, role: 'member', joinedAt });
+    }
+
+    await User.updateMany({ _id: { $in: toAddIds } }, { $addToSet: { groups: group._id } });
     await group.save();
-    await group.populate('members.userId', 'fullName username profilePic');
+
+    const userMap = new Map(foundUsers.map((u) => [u._id.toString(), u]));
+    const messageDocs = toAddIds.map((uid) => {
+      const targetUser = userMap.get(uid);
+      return {
+        groupId: group._id,
+        isSystemMessage: true,
+        systemMessageType: 'member_added',
+        senderId: currentUser._id,
+        affectedUser: uid,
+        message: `${displayName(currentUser)} added ${displayName(targetUser)}`,
+        status: 'sent',
+      };
+    });
+
+    const inserted = await Message.insertMany(messageDocs);
+    const messageIds = inserted.map((m) => m._id);
+    const populatedMessages = await Message.find({ _id: { $in: messageIds } })
+      .populate('senderId', 'fullName username name profilePic')
+      .populate('affectedUser', 'fullName username name profilePic');
+
+    const populatedGroup = await loadPopulatedGroup();
 
     const io = req.app.get('io');
     if (io) {
-      // Emit member list updated event to all group members
-      io.to(`group_${groupId}`).emit('memberListUpdated', { 
-        groupId: group._id, 
+      io.to(`group_${groupId}`).emit('memberListUpdated', {
+        group: populatedGroup,
+        groupId: group._id,
         action: 'members_added',
-        userIds: addedUsers
+        userIds: toAddIds,
       });
-      
-      // Emit each system message to all group members in real-time
-      for (const msg of systemMessages) {
+      for (const msg of populatedMessages) {
         io.to(`group_${groupId}`).emit('newGroupMessage', msg);
       }
     }
 
-    res.json(group);
+    res.json(populatedGroup);
   } catch (error) {
     console.error('Error adding members:', error);
     res.status(500).json({ error: error.message || 'Failed to add members' });
@@ -223,11 +249,21 @@ export const removeMember = async (req, res) => {
       return res.status(403).json({ error: 'Only admins can remove members' });
     }
 
-    if (group.creator.toString() === userId.toString()) {
-      return res.status(403).json({ error: 'Cannot remove group creator' });
+    const targetStr = userId.toString();
+    if (group.creator.toString() === targetStr) {
+      const otherAdmins = group.members.filter(
+        (m) => m.userId.toString() !== targetStr && m.role === 'admin'
+      );
+      if (otherAdmins.length === 0) {
+        return res.status(403).json({
+          error:
+            'Cannot remove the group creator while they are the only admin. Promote another member to admin first.',
+        });
+      }
+      group.creator = otherAdmins[0].userId;
     }
 
-    group.members = group.members.filter(m => m.userId.toString() !== userId.toString());
+    group.members = group.members.filter((m) => m.userId.toString() !== targetStr);
     await group.save();
 
     await User.findByIdAndUpdate(userId, { $pull: { groups: groupId } });
@@ -238,35 +274,39 @@ export const removeMember = async (req, res) => {
       systemMessageType: 'member_removed',
       senderId: currentUser._id,
       affectedUser: userId,
-      message: `${currentUser.fullName} removed ${removedUser.fullName}`,
-      status: 'sent'
+      message: `${displayName(currentUser)} removed ${displayName(removedUser)}`,
+      status: 'sent',
     });
     await systemMessage.save();
-    await systemMessage.populate('senderId', 'fullName');
+    await systemMessage.populate('senderId', 'fullName username name profilePic');
+    await systemMessage.populate('affectedUser', 'fullName username name profilePic');
+
+    const populatedGroup = await Group.findById(groupId)
+      .populate('members.userId', 'fullName username profilePic')
+      .populate('creator', 'fullName username');
 
     const io = req.app.get('io');
     if (io) {
-      // Emit member list updated event to all group members
-      io.to(`group_${groupId}`).emit('memberListUpdated', { 
-        groupId, 
+      io.to(`group_${groupId}`).emit('memberListUpdated', {
+        group: populatedGroup,
+        groupId,
         action: 'member_removed',
-        userId: userId
+        userId,
       });
-      
-      // Emit system message to all group members in real-time
+
       io.to(`group_${groupId}`).emit('newGroupMessage', systemMessage);
-      
-      // Notify the removed user
+
       const userSockets = getOnlineUsersMap();
       const removedUserSockets = userSockets.get(userId.toString());
       if (removedUserSockets) {
-        removedUserSockets.forEach(socketId => {
+        removedUserSockets.forEach((socketId) => {
+          io.in(socketId).socketsLeave(`group_${groupId}`);
           io.to(socketId).emit('removedFromGroup', { groupId, groupName: group.name });
         });
       }
     }
 
-    res.json({ message: 'Member removed successfully' });
+    res.json({ message: 'Member removed successfully', group: populatedGroup });
   } catch (error) {
     console.error('Error removing member:', error);
     res.status(500).json({ error: error.message || 'Failed to remove member' });
@@ -431,52 +471,136 @@ export const updateGroupName = async (req, res) => {
 
 export const leaveGroup = async (req, res) => {
   try {
-    const group = await Group.findById(req.params.groupId);
+    const groupId = req.params.groupId;
+    const group = await Group.findById(groupId);
     const currentUser = req.user;
 
     if (!group) {
       return res.status(404).json({ error: 'Group not found' });
     }
 
-    const isMember = group.members.some(m => m.userId.toString() === currentUser._id.toString());
-    if (!isMember) {
+    const leaverIdStr = currentUser._id.toString();
+    const memberEntry = group.members.find((m) => m.userId.toString() === leaverIdStr);
+    if (!memberEntry) {
       return res.status(403).json({ error: 'You are not a member of this group' });
     }
 
-    const systemMessage = new Message({
+    const wasAdmin = memberEntry.role === 'admin';
+    const leaverWasCreator = group.creator.toString() === leaverIdStr;
+
+    const leftMessage = new Message({
       groupId: group._id,
       isSystemMessage: true,
       systemMessageType: 'member_left',
       senderId: currentUser._id,
       affectedUser: currentUser._id,
-      message: `${currentUser.fullName} left the group`,
-      status: 'sent'
+      message: `${displayName(currentUser)} left the group`,
+      status: 'sent',
     });
-    await systemMessage.save();
-    await systemMessage.populate('senderId', 'fullName');
+    await leftMessage.save();
 
-    group.members = group.members.filter(m => m.userId.toString() !== currentUser._id.toString());
-    
+    const extraMessages = [];
+    group.members = group.members.filter((m) => m.userId.toString() !== leaverIdStr);
+
     if (group.members.length === 0) {
-      await Group.findByIdAndDelete(req.params.groupId);
-    } else {
-      await group.save();
+      await User.findByIdAndUpdate(currentUser._id, { $pull: { groups: groupId } });
+      await Group.findByIdAndDelete(groupId);
+
+      const populatedLeft = await Message.findById(leftMessage._id)
+        .populate('senderId', 'fullName username name profilePic')
+        .populate('affectedUser', 'fullName username name profilePic');
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`group_${groupId}`).emit('groupDeleted', { groupId });
+        io.to(`group_${groupId}`).emit('memberRemoved', {
+          groupId,
+          userId: currentUser._id,
+          userName: displayName(currentUser),
+          removedBy: displayName(currentUser),
+        });
+        if (populatedLeft) {
+          io.to(`group_${groupId}`).emit('newGroupMessage', populatedLeft);
+        }
+        const leaverSockets = getOnlineUsersMap().get(leaverIdStr);
+        leaverSockets?.forEach((socketId) => {
+          io.in(socketId).socketsLeave(`group_${groupId}`);
+          io.to(socketId).emit('removedFromGroup', { groupId, groupName: group.name });
+        });
+      }
+
+      return res.json({ message: 'Left group successfully' });
     }
 
-    await User.findByIdAndUpdate(currentUser._id, { $pull: { groups: req.params.groupId } });
+    if (wasAdmin && !group.members.some((m) => m.role === 'admin')) {
+      const idx = Math.floor(Math.random() * group.members.length);
+      group.members[idx].role = 'admin';
+      const promotedId = group.members[idx].userId;
+      const promotedUserDoc = await User.findById(promotedId).select('fullName username name');
+      const promoMsg = new Message({
+        groupId: group._id,
+        isSystemMessage: true,
+        systemMessageType: 'admin_promoted',
+        senderId: promotedId,
+        affectedUser: promotedId,
+        message: `${displayName(promotedUserDoc)} was promoted to admin`,
+        status: 'sent',
+      });
+      await promoMsg.save();
+      extraMessages.push(promoMsg);
+    }
+
+    if (leaverWasCreator) {
+      const adminMember = group.members.find((m) => m.role === 'admin');
+      group.creator = adminMember.userId;
+    }
+
+    group.updatedAt = Date.now();
+    await group.save();
+
+    await User.findByIdAndUpdate(currentUser._id, { $pull: { groups: groupId } });
+
+    const populatedLeft = await Message.findById(leftMessage._id)
+      .populate('senderId', 'fullName username name profilePic')
+      .populate('affectedUser', 'fullName username name profilePic');
+
+    const populatedExtras = [];
+    for (const m of extraMessages) {
+      const pm = await Message.findById(m._id)
+        .populate('senderId', 'fullName username name profilePic')
+        .populate('affectedUser', 'fullName username name profilePic');
+      if (pm) populatedExtras.push(pm);
+    }
+
+    const populatedGroup = await Group.findById(groupId)
+      .populate('members.userId', 'fullName username profilePic')
+      .populate('creator', 'fullName username');
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`group_${group._id}`).emit('memberRemoved', { 
-        groupId: req.params.groupId, 
+      io.to(`group_${groupId}`).emit('memberRemoved', {
+        groupId,
         userId: currentUser._id,
-        userName: currentUser.fullName,
-        removedBy: currentUser.fullName
+        userName: displayName(currentUser),
+        removedBy: displayName(currentUser),
       });
-      io.to(`group_${group._id}`).emit('newGroupMessage', systemMessage);
+      io.to(`group_${groupId}`).emit('memberListUpdated', {
+        group: populatedGroup,
+        groupId,
+        action: 'member_left',
+      });
+      io.to(`group_${groupId}`).emit('newGroupMessage', populatedLeft);
+      for (const pm of populatedExtras) {
+        io.to(`group_${groupId}`).emit('newGroupMessage', pm);
+      }
+      const leaverSockets = getOnlineUsersMap().get(leaverIdStr);
+      leaverSockets?.forEach((socketId) => {
+        io.in(socketId).socketsLeave(`group_${groupId}`);
+        io.to(socketId).emit('removedFromGroup', { groupId, groupName: group.name });
+      });
     }
 
-    res.json({ message: 'Left group successfully' });
+    res.json({ message: 'Left group successfully', group: populatedGroup });
   } catch (error) {
     console.error('Error leaving group:', error);
     res.status(500).json({ error: 'Failed to leave group' });

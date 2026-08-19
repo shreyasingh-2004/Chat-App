@@ -8,9 +8,9 @@ const useSendMessage = () => {
   const [loading, setLoading] = useState(false);
   const { socket } = useSocketContext();
   const { authUser } = useAuthContext();
-  const { messages, setMessages, selectedConversation } = useConversation();
+  const { setMessages } = useConversation();
 
-  const sendMessage = async (message, receiverId) => {
+  const sendMessage = async (message, receiverId, options = {}) => {
     if (!socket || !receiverId) {
       toast.error("Not connected to chat");
       return false;
@@ -29,6 +29,8 @@ const useSendMessage = () => {
       },
       receiverId: receiverId,
       message: message,
+      attachment: options.attachment || undefined,
+      replyTo: options.replyTo || null,
       status: "sending",
       createdAt: new Date(),
       isSystemMessage: false
@@ -41,7 +43,9 @@ const useSendMessage = () => {
       const response = await new Promise((resolve, reject) => {
         socket.emit("sendMessage", { 
           receiverId, 
-          message 
+          message,
+          attachment: options.attachment,
+          replyTo: options.replyTo,
         }, (response) => {
           if (response && response.success) {
             resolve(response);

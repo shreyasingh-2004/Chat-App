@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useAuthContext } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import { apiFetch } from "../utils/api";
 
 const useSignup = () => {
   const [loading, setLoading] = useState(false);
   const { setAuthUser } = useAuthContext();
 
-  const signup = async ({ fullName, username, password, confirmPassword, gender }) => {
-    if (!fullName || !username || !password || !confirmPassword || !gender) {
+  const signup = async ({ fullName, username, password, confirmPassword, age }) => {
+    // Basic validation (frontend already validates, but double-check)
+    if (!fullName || !username || !password || !confirmPassword || !age) {
       toast.error("Please fill all fields");
       return;
     }
@@ -19,15 +21,24 @@ const useSignup = () => {
 
     setLoading(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${apiUrl}/api/auth/signup`, {
+      const res = await apiFetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, username, password, confirmPassword, gender }),
+        body: JSON.stringify({ 
+          fullName, 
+          username, 
+          password, 
+          confirmPassword, 
+          age: parseInt(age) 
+        }),
       });
 
       const data = await res.json();
       
+      if (!res.ok) {
+        throw new Error(data.error || "Signup failed");
+      }
+
       if (data.error) {
         throw new Error(data.error);
       }
@@ -37,7 +48,7 @@ const useSignup = () => {
       localStorage.setItem("token", data.token);
       setAuthUser(data);
       
-      toast.success("Account created successfully");
+      toast.success("Account created successfully!");
     } catch (error) {
       toast.error(error.message);
     } finally {

@@ -2,126 +2,185 @@ import { useEffect, useRef } from "react";
 import { useSocketContext } from "../context/SocketContext";
 import useConversation from "../zustand/useConversation";
 import { useAuthContext } from "../context/AuthContext";
-
+ 
 const normalizeId = (id) => {
   if (!id) return null;
-  if (typeof id === 'string') return id;
-  if (typeof id === 'object') {
+  if (typeof id === "string") return id;
+  if (typeof id === "object") {
     if (id._id) return String(id._id);
     if (id.toString) return id.toString();
   }
   return null;
 };
-
+ 
 const useListenMessages = () => {
   const { socket } = useSocketContext();
-  const { setMessages, selectedConversation, isGroupChat } = useConversation();
+  const { setMessages, selectedConversation, isGroupChat, incrementUnread } = useConversation();
   const { authUser } = useAuthContext();
   const processedMessageIds = useRef(new Set());
-  const listenersAttached = useRef(false);
-
+ 
+  // Refs so socket callbacks always see latest values without re-registering
+  const selectedConversationRef = useRef(selectedConversation);
+  const isGroupChatRef = useRef(isGroupChat);
+ 
+  useEffect(() => { selectedConversationRef.current = selectedConversation; }, [selectedConversation]);
+  useEffect(() => { isGroupChatRef.current = isGroupChat; }, [isGroupChat]);
+ 
   useEffect(() => {
     if (!socket) return;
-    
-    if (listenersAttached.current) return;
-    listenersAttached.current = true;
-
-    const currentConversationId = normalizeId(selectedConversation?._id);
-
+ 
+    // ─────────────────────────────────────────────
+    // NEW GROUP MESSAGE
+    // ─────────────────────────────────────────────
     const handleNewGroupMessage = (newMessage) => {
-      const messageId = newMessage._id;
-      
-      // Check if this message is from the current user
-      const isFromCurrentUser = newMessage.senderId?._id === authUser?._id ||
-                                newMessage.senderId === authUser?._id;
-      
-      // For system messages, always show them (they have isSystemMessage flag)
+      const messageId = normalizeId(newMessage._id);
+      if (!messageId) return;
+ 
+      const isFromCurrentUser =
+        normalizeId(newMessage.senderId?._id || newMessage.senderId) === normalizeId(authUser?._id);
       const isSystemMsg = newMessage.isSystemMessage === true;
-      
-      // Skip if message is from current user and not a system message
-      if (isFromCurrentUser && !isSystemMsg) {
-        console.log("Skipping own group message (already added)");
-        return;
-      }
-      
-      if (processedMessageIds.current.has(messageId)) {
-        console.log("Duplicate group message skipped:", messageId);
-        return;
-      }
+ 
+      // Skip own messages (already added optimistically) unless system message
+      if (isFromCurrentUser && !isSystemMsg) return;
+ 
+      // Dedup guard
+      if (processedMessageIds.current.has(messageId)) return;
       processedMessageIds.current.add(messageId);
-      
-      console.log("📨 New GROUP message received:", newMessage.message, isSystemMsg ? "(System)" : "");
+      setTimeout(() => processedMessageIds.current.delete(messageId), 5000);
+ 
+      const currentConversationId = normalizeId(selectedConversationRef.current?._id);
       const messageGroupId = normalizeId(newMessage.groupId);
-      
-      if (currentConversationId && messageGroupId === currentConversationId && isGroupChat) {
-        setMessages((prevMessages) => {
-          const exists = prevMessages.some(msg => msg._id === messageId);
-          if (exists) return prevMessages;
-          return [...prevMessages, newMessage];
+      const isViewingThisGroup =
+        isGroupChatRef.current && messageGroupId === currentConversationId;
+ 
+      if (isViewingThisGroup) {
+        // Currently viewing this group — append to messages
+        setMessages((prev) => {
+          if (prev.some((m) => normalizeId(m._id) === messageId)) return prev;
+          return [...prev, newMessage];
         });
+      } else {
+        // Background group — increment unread badge
+        if (messageGroupId) {
+          incrementUnread(messageGroupId, "group");
+        }
       }
-      
-      setTimeout(() => {
-        processedMessageIds.current.delete(messageId);
-      }, 3000);
     };
-
+ 
+    // ─────────────────────────────────────────────
+    // NEW DIRECT MESSAGE
+    // ─────────────────────────────────────────────
     const handleNewMessage = (newMessage) => {
-      const messageId = newMessage._id;
-      
-      // Check if this message is from the current user
-      const isFromCurrentUser = newMessage.senderId === authUser?._id;
-      
-      // Skip if message is from current user
-      if (isFromCurrentUser) {
-        console.log("Skipping own personal message (already added)");
-        return;
-      }
-      
-      if (processedMessageIds.current.has(messageId)) {
-        console.log("Duplicate personal message skipped:", messageId);
-        return;
-      }
+      const messageId = normalizeId(newMessage._id);
+      if (!messageId) return;
+ 
+      const messageSenderId = normalizeId(newMessage.senderId?._id || newMessage.senderId);
+      const currentUserId = normalizeId(authUser?._id);
+ 
+      // Skip own messages (already added optimistically)
+      if (messageSenderId === currentUserId) return;
+ 
+      // Dedup guard
+      if (processedMessageIds.current.has(messageId)) return;
       processedMessageIds.current.add(messageId);
-      
-      console.log("📨 New PERSONAL message received:", newMessage.message);
-      
-      if (!currentConversationId || isGroupChat) return;
-
-      const messageSenderId = normalizeId(newMessage.senderId);
-      const messageReceiverId = normalizeId(newMessage.receiverId);
-
-      const isCorrectConversation = messageSenderId === currentConversationId || messageReceiverId === currentConversationId;
-
-      if (isCorrectConversation) {
-        setMessages((prevMessages) => {
-          const exists = prevMessages.some(msg => msg._id === messageId);
-          if (exists) return prevMessages;
-          return [...prevMessages, newMessage];
+      setTimeout(() => processedMessageIds.current.delete(messageId), 5000);
+ 
+      const currentConversationId = normalizeId(selectedConversationRef.current?._id);
+      const messageReceiverId = normalizeId(newMessage.receiverId?._id || newMessage.receiverId);
+ 
+      const isViewingThisChat =
+        !isGroupChatRef.current &&
+        currentConversationId &&
+        (
+          (messageSenderId === currentConversationId && messageReceiverId === currentUserId) ||
+          (messageReceiverId === currentConversationId && messageSenderId === currentUserId)
+        );
+ 
+      if (isViewingThisChat) {
+        // Currently viewing this DM — append to messages
+        setMessages((prev) => {
+          if (prev.some((m) => normalizeId(m._id) === messageId)) return prev;
+          return [...prev, newMessage];
         });
+      } else {
+        // Background DM — increment unread badge on the sender
+        if (messageSenderId) {
+          incrementUnread(messageSenderId, "dm");
+        }
       }
-      
-      setTimeout(() => {
-        processedMessageIds.current.delete(messageId);
-      }, 3000);
     };
-
-    // Remove existing listeners first to be safe
-    socket.off("newGroupMessage");
-    socket.off("newMessage");
-    
+ 
+    // ─────────────────────────────────────────────
+    // MESSAGE EDITED
+    // ─────────────────────────────────────────────
+    const handleMessageEdited = (updatedMessage) => {
+      const messageId = normalizeId(updatedMessage._id);
+      if (!messageId) return;
+      setMessages((prev) =>
+        prev.map((m) => normalizeId(m._id) === messageId ? updatedMessage : m)
+      );
+    };
+ 
+    // ─────────────────────────────────────────────
+    // MESSAGE DELETED
+    // ─────────────────────────────────────────────
+    const handleMessageDeleted = ({ messageId, mode, userId, message }) => {
+      const normalizedMsgId = normalizeId(messageId);
+      const normalizedUserId = normalizeId(userId);
+      const normalizedAuthId = normalizeId(authUser?._id);
+ 
+      setMessages((prev) => {
+        if (mode === "me") {
+          // ✅ FIX: Only hide for the user who deleted it — was backwards before
+          if (normalizedUserId === normalizedAuthId) {
+            return prev.filter((item) => normalizeId(item._id) !== normalizedMsgId);
+          }
+          return prev; // Don't change anything for other users
+        }
+ 
+        // "everyone" — replace with the updated (deleted) message object
+        return prev.map((item) =>
+          normalizeId(item._id) === normalizedMsgId ? message : item
+        );
+      });
+    };
+ 
+    // ─────────────────────────────────────────────
+    // MESSAGES SEEN — update status ticks
+    // ─────────────────────────────────────────────
+    const handleMessagesSeen = ({ by }) => {
+      const byId = normalizeId(by);
+      const currentUserId = normalizeId(authUser?._id);
+ 
+      setMessages((prev) =>
+        prev.map((m) => {
+          const senderId = normalizeId(m.senderId?._id || m.senderId);
+          // Update status only for messages sent by current user to the person who saw them
+          if (senderId === currentUserId && normalizeId(m.receiverId) === byId) {
+            return { ...m, status: "seen" };
+          }
+          return m;
+        })
+      );
+    };
+ 
     socket.on("newGroupMessage", handleNewGroupMessage);
-    socket.on("newMessage", handleNewMessage);
-
+    socket.on("newMessage",      handleNewMessage);
+    socket.on("messageEdited",   handleMessageEdited);
+    socket.on("messageDeleted",  handleMessageDeleted);
+    socket.on("messagesSeen",    handleMessagesSeen);
+ 
     return () => {
       socket.off("newGroupMessage", handleNewGroupMessage);
-      socket.off("newMessage", handleNewMessage);
-      listenersAttached.current = false;
+      socket.off("newMessage",      handleNewMessage);
+      socket.off("messageEdited",   handleMessageEdited);
+      socket.off("messageDeleted",  handleMessageDeleted);
+      socket.off("messagesSeen",    handleMessagesSeen);
       processedMessageIds.current.clear();
     };
-  }, [socket, setMessages, selectedConversation, isGroupChat, authUser]);
-
+  }, [socket, authUser, setMessages, incrementUnread]);
+ 
   return null;
 };
-
+ 
 export default useListenMessages;

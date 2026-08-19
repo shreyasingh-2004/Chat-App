@@ -1,74 +1,86 @@
 import { useEffect, useState, useRef } from "react";
 import useConversation from "../zustand/useConversation";
 import toast from "react-hot-toast";
+import { apiFetch } from "../utils/api";
 
-const useGetGroupMessages = (groupId) => {
+// groupIdOverride: passed explicitly from Messages.jsx so the hook
+// always fetches the right group without reading stale zustand state.
+const useGetGroupMessages = (groupIdOverride) => {
   const [loading, setLoading] = useState(false);
-  const { setMessages, messages } = useConversation();
-  const fetchedRef = useRef(false);
+  const { selectedConversation, setMessages, isGroupChat } = useConversation();
+  const isFetchingRef = useRef(false);
+  const fetchingForIdRef = useRef(null);
+
+  const groupId = groupIdOverride ?? (isGroupChat ? selectedConversation?._id : null);
 
   useEffect(() => {
-    if (!groupId) return;
-    
-    // Check if we already have messages for this group
-    const hasMessagesForThisGroup = messages.length > 0 && messages[0]?.groupId === groupId;
-    
-    if (hasMessagesForThisGroup) {
-      console.log("Already have messages for group:", groupId);
+    if (!groupId) {
+      setLoading(false);
       return;
     }
-    
-    if (fetchedRef.current) {
-      console.log("Already fetched messages for group:", groupId);
+
+    if (isFetchingRef.current && fetchingForIdRef.current === groupId) {
       return;
     }
-    
-    fetchedRef.current = true;
 
     const getMessages = async () => {
+      isFetchingRef.current = true;
+      fetchingForIdRef.current = groupId;
       setLoading(true);
+
       try {
         const token = localStorage.getItem("token");
-        
-        console.log(`📥 Fetching messages for group ${groupId}`);
-        
-        const res = await fetch(`/api/messages/group/${groupId}`, {
+        if (!token) throw new Error("No authentication token found");
+
+        const response = await apiFetch(`/api/messages/group/${groupId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
+            Authorization: `Bearer ${token}`,
           },
         });
-        
-        if (!res.ok) throw new Error("Failed to fetch");
-        
-        const data = await res.json();
-        
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
         if (data.error) throw new Error(data.error);
-        
-        console.log(`📨 Received ${data.length} messages for group`);
-        
-        const sortedMessages = data.sort((a, b) => 
-          new Date(a.createdAt) - new Date(b.createdAt)
+
+        let messagesArray;
+        if (Array.isArray(data)) {
+          messagesArray = data;
+        } else if (data.messages && Array.isArray(data.messages)) {
+          messagesArray = data.messages;
+        } else {
+          throw new Error("Invalid response format");
+        }
+
+        // Sort oldest-first so scroll-to-bottom shows latest
+        const sorted = [...messagesArray].sort(
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
         );
-        
-        setMessages(sortedMessages);
+
+        console.log(`✅ Received ${sorted.length} group messages`);
+
+        if (fetchingForIdRef.current === groupId) {
+          setMessages(sorted);
+        }
       } catch (error) {
         console.error("Error fetching group messages:", error);
-        toast.error("Failed to load messages");
-        setMessages([]);
+        toast.error(error.message || "Failed to load group messages");
+        if (fetchingForIdRef.current === groupId) {
+          setMessages([]);
+        }
       } finally {
+        isFetchingRef.current = false;
         setLoading(false);
       }
     };
 
     getMessages();
-    
-    // Reset fetched flag when groupId changes
-    return () => {
-      fetchedRef.current = false;
-    };
-  }, [groupId, setMessages, messages]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
 
   return { loading };
 };

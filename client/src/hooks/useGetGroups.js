@@ -1,19 +1,24 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { apiFetch } from "../utils/api";
+import { useAuthContext } from "../context/AuthContext";
+import { useSocketContext } from "../context/SocketContext";
+import useConversation from "../zustand/useConversation";
 
 const useGetGroups = () => {
+  const { groups, setGroups, upsertGroup, removeGroupFromCache } = useConversation();
   const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState([]);
-  const fetchedRef = useRef(false);
+  const fetchingRef = useRef(false);
+  const { authUser } = useAuthContext();
+  const { socket } = useSocketContext();
 
   const refetch = async () => {
-    // Prevent multiple simultaneous fetches
-    if (fetchedRef.current) {
+    if (fetchingRef.current) {
       console.log("Already fetching groups, skipping...");
       return;
     }
-    
-    fetchedRef.current = true;
+
+    fetchingRef.current = true;
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -24,12 +29,12 @@ const useGetGroups = () => {
       }
 
       console.log("Fetching groups...");
-      
-      const res = await fetch("/api/groups/my-groups", {
+
+      const res = await apiFetch("/api/groups/my-groups", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -41,7 +46,7 @@ const useGetGroups = () => {
 
       const data = await res.json();
       console.log("Groups received:", data.length);
-      
+
       setGroups(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching groups:", error);
@@ -49,19 +54,59 @@ const useGetGroups = () => {
       setGroups([]);
     } finally {
       setLoading(false);
-      // Reset fetch flag after delay
-      setTimeout(() => {
-        fetchedRef.current = false;
-      }, 1000);
+      fetchingRef.current = false;
     }
   };
 
-  // Only fetch once when component mounts
   useEffect(() => {
-    if (!fetchedRef.current) {
+    if (!fetchingRef.current) {
       refetch();
     }
   }, []);
+
+  useEffect(() => {
+    if (!socket || !authUser?._id) return undefined;
+
+    const isCurrentUserMember = (group) => {
+      return group?.members?.some((member) => {
+        const memberId = member.userId?._id || member.userId;
+        return String(memberId) === String(authUser._id);
+      });
+    };
+
+    const handleGroupCreated = (group) => {
+      if (!group?._id || !isCurrentUserMember(group)) return;
+      upsertGroup(group);
+    };
+
+    const handleMemberListUpdated = ({ group, action }) => {
+      if (!group) return;
+      const isMember = isCurrentUserMember(group);
+      if (isMember) {
+        upsertGroup(group);
+        // Join the socket room immediately so we receive live messages
+        if (action === "members_added" && socket) {
+          socket.emit("joinGroupRoom", { groupId: group._id });
+        }
+      }
+    };
+
+    const removeGroup = ({ groupId }) => {
+      removeGroupFromCache(groupId);
+    };
+
+    socket.on("groupCreated", handleGroupCreated);
+    socket.on("memberListUpdated", handleMemberListUpdated);
+    socket.on("removedFromGroup", removeGroup);
+    socket.on("groupDeleted", removeGroup);
+
+    return () => {
+      socket.off("groupCreated", handleGroupCreated);
+      socket.off("memberListUpdated", handleMemberListUpdated);
+      socket.off("removedFromGroup", removeGroup);
+      socket.off("groupDeleted", removeGroup);
+    };
+  }, [authUser?._id, removeGroupFromCache, socket, upsertGroup]);
 
   return { loading, groups, refetch };
 };

@@ -4,202 +4,215 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design Tokens ─────────────────────────────────────────────────────── */
+:root {
+  --brand-from: #6366f1;
+  --brand-to:   #06b6d4;
+  --brand-from-dark: #4f46e5;
+  --brand-to-dark:   #0891b2;
+
+  --surface:      rgba(255,255,255,0.95);
+  --surface-dark: rgba(30,41,59,0.85);
+
+  --border:       rgba(0,0,0,0.06);
+  --border-dark:  rgba(255,255,255,0.06);
+
+  --radius-card: 1.25rem;
+  --radius-input: 0.75rem;
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────── */
 @layer base {
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
   html, body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-  }
-  
-  body {
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  }
-  
-  /* Dark mode body */
-  .dark body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Premium Scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+
+.custom-scroll { scrollbar-width: thin; }
+.custom-scroll::-webkit-scrollbar        { width: 4px; }
+.custom-scroll::-webkit-scrollbar-track  { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.dark .custom-scroll::-webkit-scrollbar-thumb       { background: #475569; }
+.dark .custom-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+@keyframes float    { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-8px) } }
+@keyframes slideUp  { from{ opacity:0; transform:translateY(20px) } to{ opacity:1; transform:translateY(0) } }
+@keyframes fadeIn   { from{ opacity:0 } to{ opacity:1 } }
+@keyframes scaleIn  { from{ opacity:0; transform:scale(0.95) } to{ opacity:1; transform:scale(1) } }
+@keyframes shake    { 0%,100%{ transform:translateX(0) } 25%{ transform:translateX(-5px) } 75%{ transform:translateX(5px) } }
+@keyframes shimmer  { 0%{ background-position:-200% 0 } 100%{ background-position:200% 0 } }
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(6,182,212,0.5); }
+  70%  { box-shadow: 0 0 0 6px rgba(6,182,212,0); }
+  100% { box-shadow: 0 0 0 0 rgba(6,182,212,0); }
+}
+@keyframes messagePop {
+  0%   { opacity:0; transform:scale(0.92) translateY(4px) }
+  100% { opacity:1; transform:scale(1) translateY(0) }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+.animate-float      { animation: float      3s ease-in-out infinite; }
+.animate-slide-up   { animation: slideUp    0.45s cubic-bezier(.22,1,.36,1) both; }
+.animate-scale-in   { animation: scaleIn    0.35s cubic-bezier(.22,1,.36,1) both; }
+.animate-fade-in    { animation: fadeIn     0.4s ease-out both; }
+.animate-message    { animation: messagePop 0.25s cubic-bezier(.22,1,.36,1) both; }
+.error-shake        { animation: shake      0.3s ease-in-out; }
+.animate-pulse-ring { animation: pulseRing  2s ease-out infinite; }
+
+/* ─── Glass Card ─────────────────────────────────────────────────────────── */
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  transition: all 0.3s ease;
+}
+.dark .glass-card {
+  background: var(--surface-dark);
+  border-color: var(--border-dark);
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.5);
-  border-radius: 10px;
+/* ─── Input Modern ───────────────────────────────────────────────────────── */
+.input-modern {
+  @apply w-full rounded-xl border-2 border-gray-200 bg-white/80 px-4 py-3
+         text-sm text-gray-900 outline-none transition-all duration-200
+         placeholder:text-gray-400
+         focus:border-indigo-400 focus:bg-white focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]
+         dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-100
+         dark:focus:border-indigo-500 dark:focus:bg-gray-800;
+}
+.input-modern.error {
+  @apply border-red-400 focus:border-red-500 focus:shadow-[0_0_0_3px_rgba(239,68,68,0.15)];
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8);
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+.btn-primary {
+  @apply flex items-center justify-center gap-2 rounded-xl px-5 py-3
+         text-sm font-semibold text-white
+         bg-gradient-to-r from-indigo-500 to-cyan-500
+         shadow-lg shadow-indigo-500/25
+         transition-all duration-300
+         hover:from-indigo-600 hover:to-cyan-600
+         hover:shadow-xl hover:shadow-indigo-500/30
+         hover:-translate-y-0.5
+         active:translate-y-0
+         disabled:opacity-60 disabled:cursor-not-allowed
+         disabled:hover:translate-y-0;
+}
+.btn-modern { @apply relative overflow-hidden; }
+.btn-secondary {
+  @apply flex items-center justify-center gap-2 rounded-xl border-2 border-gray-200 px-5 py-3
+         text-sm font-semibold text-gray-700
+         bg-white/80 transition-all duration-200
+         hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50
+         dark:border-gray-700 dark:text-gray-300 dark:bg-gray-800
+         dark:hover:border-indigo-500 dark:hover:text-indigo-400;
+}
+.btn-danger {
+  @apply flex items-center justify-center gap-2 rounded-xl px-5 py-3
+         text-sm font-semibold text-white
+         bg-gradient-to-r from-red-500 to-rose-500
+         shadow-lg shadow-red-500/20
+         transition-all duration-200
+         hover:from-red-600 hover:to-rose-600
+         disabled:opacity-60 disabled:cursor-not-allowed;
+}
+.icon-btn {
+  @apply flex items-center justify-center rounded-xl p-2
+         text-gray-500 dark:text-gray-400
+         hover:bg-indigo-50 hover:text-indigo-600
+         dark:hover:bg-indigo-900/30 dark:hover:text-indigo-400
+         transition-all duration-150;
 }
 
-/* Animations */
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* ─── Message Bubbles ────────────────────────────────────────────────────── */
+.bubble-sent {
+  @apply rounded-2xl rounded-br-sm px-4 py-2.5 shadow-sm
+         bg-gradient-to-br from-indigo-500 to-cyan-500 text-white;
+}
+.bubble-recv {
+  @apply rounded-2xl rounded-bl-sm px-4 py-2.5 shadow-sm
+         bg-white text-gray-900 ring-1 ring-gray-200
+         dark:bg-gray-800 dark:text-gray-100 dark:ring-gray-700;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
+/* ─── Typing Indicator ───────────────────────────────────────────────────── */
+.typing-indicator {
+  @apply flex gap-1 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 w-fit;
 }
-
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-
-@keyframes typing {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.4;
-  }
-  30% {
-    transform: translateY(-8px);
-    opacity: 1;
-  }
-}
-
-/* Custom Components */
-.message-sent {
-  animation: fadeInUp 0.3s ease-out;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-radius: 20px 20px 4px 20px;
-}
-
-.message-received {
-  animation: fadeInUp 0.3s ease-out;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 20px 20px 20px 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.dark .message-received {
-  background: rgba(30, 41, 59, 0.95);
-  color: #e2e8f0;
-}
-
-/* Typing Indicator */
 .typing-dot {
-  animation: typing 1.4s infinite;
+  @apply w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500;
+  animation: float 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.30s; }
+
+/* ─── Composer ───────────────────────────────────────────────────────────── */
+.composer-tool {
+  @apply flex items-center justify-center w-8 h-8 rounded-lg
+         text-gray-500 dark:text-gray-400
+         hover:text-indigo-600 hover:bg-indigo-50
+         dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30
+         transition-all duration-150 flex-shrink-0;
 }
 
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-/* Hover Effects */
-.hover-scale {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+/* ─── Sidebar Item ───────────────────────────────────────────────────────── */
+/* Fixed: Removed 'group' from @apply - it should be used directly in HTML */
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-3 cursor-pointer
+         transition-all duration-150;
+}
+.sidebar-item:hover {
+  @apply bg-gray-50 dark:bg-gray-800/50;
+}
+.sidebar-item.selected {
+  @apply bg-gradient-to-r from-indigo-50 to-cyan-50
+         dark:from-indigo-900/20 dark:to-cyan-900/20;
 }
 
-.hover-scale:hover {
-  transform: scale(1.05);
-}
-
-.hover-lift {
-  transition: all 0.2s ease;
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-/* Glass Effect */
-.glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Gradient Text */
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  @apply bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent;
+}
+.hover-lift { @apply transition-transform duration-200 hover:scale-[1.02]; }
+
+/* ─── Additional Helper Classes ──────────────────────────────────────────── */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Online Indicator Pulse */
-.online-pulse {
-  animation: pulse 2s infinite;
+/* Message action menu positioning */
+.message-actions-menu {
+  @apply absolute bottom-8 z-20 w-44 overflow-hidden rounded-xl
+         border border-gray-200 dark:border-gray-700
+         bg-white dark:bg-gray-900 py-1 text-sm shadow-xl;
 }
 
-/* Shimmer Loader */
-.shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 1000px 100%;
-  animation: shimmer 2s infinite;
+/* Reply preview styles */
+.reply-preview {
+  @apply mb-1.5 rounded-xl border-l-2 px-3 py-2 text-xs;
 }
-
-.dark .shimmer {
-  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-  background-size: 1000px 100%;
+.reply-preview.sent {
+  @apply border-cyan-300/70 bg-white/10 text-white/80;
 }
-
-/* Ensure proper scrolling for chat */
-.overflow-y-auto {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
-}
-
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.dark .overflow-y-auto::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
-.dark .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #475569;
-}
-
-.dark .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+.reply-preview.received {
+  @apply border-indigo-300 bg-indigo-50 text-indigo-700 
+         dark:bg-indigo-900/20 dark:text-indigo-300;
 }

@@ -1,21 +1,72 @@
-import Conversation from '../models/conversation.model.js';
-import Message from '../models/message.model.js';
-import Group from '../models/group.model.js';
+import Conversation from "../models/conversation.model.js";
+import Message from "../models/message.model.js";
 
+export const messagePopulate = [
+  { path: "senderId", select: "fullName username name profilePic" },
+  {
+    path: "replyTo",
+    select: "message senderId",
+    populate: {
+      path: "senderId",
+      select: "fullName username name profilePic",
+    },
+  },
+];
+
+// ✅ Visibility check
+export const isMessageVisibleTo = (message, userId) => {
+  return !message.deletedFor?.some(
+    (id) => id.toString() === userId.toString()
+  );
+};
+
+// ✅ UPLOAD MEDIA (stores as base64 data URL inline — no external storage needed)
+export const uploadMedia = async (req, res) => {
+  try {
+    const { dataUrl, fileName, mimeType, mediaType } = req.body;
+
+    if (!dataUrl) {
+      return res.status(400).json({ error: "No file data provided" });
+    }
+
+    // Validate size — max 5 MB for inline storage
+    const base64Data = dataUrl.split(",")[1] || dataUrl;
+    const sizeBytes  = Buffer.byteLength(base64Data, "base64");
+    const maxSize    = 5 * 1024 * 1024; // 5 MB
+
+    if (sizeBytes > maxSize) {
+      return res.status(400).json({ error: "File too large. Maximum size is 5 MB." });
+    }
+
+    res.json({
+      url:      dataUrl,
+      fileName: fileName  || "attachment",
+      type:     mediaType || "file",
+      mimeType: mimeType  || "application/octet-stream",
+      size:     sizeBytes,
+    });
+  } catch (error) {
+    console.error("uploadMedia error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ SEND MESSAGE
 export const sendMessage = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, attachment, replyTo } = req.body;
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
 
-    console.log(`📤 sendMessage: sender=${senderId}, receiver=${receiverId}`);
+    if (!message?.trim() && !attachment?.url) {
+      return res.status(400).json({ error: "Message required" });
+    }
 
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, receiverId] },
     });
 
     if (!conversation) {
-      console.log('Creating new conversation');
       conversation = await Conversation.create({
         participants: [senderId, receiverId],
       });
@@ -24,77 +75,201 @@ export const sendMessage = async (req, res) => {
     const newMessage = new Message({
       senderId,
       receiverId,
-      message,
+      message: message?.trim() || "",
+      attachment,
+      replyTo,
+      status: "sent",
     });
 
+    await newMessage.save();
     conversation.messages.push(newMessage._id);
-    await Promise.all([conversation.save(), newMessage.save()]);
+    await conversation.save();
+    await newMessage.populate(messagePopulate);
 
-    console.log(`✅ Message saved: ${newMessage._id}`);
     res.status(201).json(newMessage);
   } catch (error) {
-    console.error("Error in sendMessage:", error);
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };
 
+// ✅ GET MESSAGES (1:1) with pagination
 export const getMessages = async (req, res) => {
   try {
-    const { id: userToChatId } = req.params;
-    const senderId = req.user._id;
+    const { id } = req.params;
+    const userId = req.user._id;
+    const { limit = 50, skip = 0 } = req.query;
 
-    console.log(`📥 getMessages: between ${senderId} and ${userToChatId}`);
+    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
+    const parsedSkip  = Math.max(parseInt(skip)  || 0,  0);
 
-    const conversation = await Conversation.findOne({
-      participants: { $all: [senderId, userToChatId] },
-    }).populate("messages");
+    const totalMessages = await Message.countDocuments({
+      $or: [
+        { senderId: userId, receiverId: id },
+        { senderId: id,     receiverId: userId },
+      ],
+    });
 
-    if (!conversation) {
-      console.log('No conversation found, returning empty array');
-      return res.status(200).json([]);
-    }
+    const messages = await Message.find({
+      $or: [
+        { senderId: userId, receiverId: id },
+        { senderId: id,     receiverId: userId },
+      ],
+    })
+      .populate(messagePopulate)
+      .sort({ createdAt: -1 })
+      .limit(parsedLimit)
+      .skip(parsedSkip);
 
-    console.log(`✅ Found ${conversation.messages.length} messages`);
-    res.status(200).json(conversation.messages);
+    const filteredMessages = messages
+      .filter((m) => isMessageVisibleTo(m, userId))
+      .reverse();
+
+    res.json({
+      messages: filteredMessages,
+      pagination: {
+        total:   totalMessages,
+        limit:   parsedLimit,
+        skip:    parsedSkip,
+        hasMore: parsedSkip + parsedLimit < totalMessages,
+      },
+    });
   } catch (error) {
     console.error("Error in getMessages:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
+// ✅ GET GROUP MESSAGES with pagination
 export const getGroupMessages = async (req, res) => {
   try {
     const { groupId } = req.params;
     const userId = req.user._id;
+    const { limit = 50, skip = 0 } = req.query;
 
-    console.log(`📥 getGroupMessages: group=${groupId}, user=${userId}`);
+    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
+    const parsedSkip  = Math.max(parseInt(skip)  || 0,  0);
 
-    const group = await Group.findById(groupId);
-    if (!group) {
-      return res.status(404).json({ error: 'Group not found' });
-    }
+    const totalMessages = await Message.countDocuments({ groupId });
 
-    const member = group.members.find(m => m.userId.toString() === userId.toString());
-    
-    let messages;
-    if (!member) {
-      messages = await Message.find({ groupId })
-        .populate('senderId', 'fullName username profilePic')
-        .sort({ createdAt: 1 });
-      console.log(`Removed user: showing ${messages.length} messages`);
-    } else {
-      messages = await Message.find({
-        groupId,
-        createdAt: { $gte: member.joinedAt }
-      })
-        .populate('senderId', 'fullName username profilePic')
-        .sort({ createdAt: 1 });
-      console.log(`Member joined at ${member.joinedAt}: showing ${messages.length} messages`);
-    }
-    
-    res.json(messages);
+    const messages = await Message.find({ groupId })
+      .populate(messagePopulate)
+      .sort({ createdAt: -1 })
+      .limit(parsedLimit)
+      .skip(parsedSkip);
+
+    const filteredMessages = messages
+      .filter((m) => isMessageVisibleTo(m, userId))
+      .reverse();
+
+    res.json({
+      messages: filteredMessages,
+      pagination: {
+        total:   totalMessages,
+        limit:   parsedLimit,
+        skip:    parsedSkip,
+        hasMore: parsedSkip + parsedLimit < totalMessages,
+      },
+    });
   } catch (error) {
-    console.error('Error in getGroupMessages:', error);
+    console.error("❌ getGroupMessages error:", error.message);
     res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ EDIT MESSAGE
+export const editMessage = async (req, res) => {
+  try {
+    const { messageId, newText } = req.body;
+    const msg = await Message.findById(messageId);
+
+    if (!msg) return res.status(404).json({ error: "Message not found" });
+    if (msg.senderId.toString() !== req.user._id.toString())
+      return res.status(403).json({ error: "Unauthorized" });
+
+    msg.message  = newText;
+    msg.isEdited = true;
+    await msg.save();
+    await msg.populate(messagePopulate);
+
+    res.json({ success: true, data: msg });
+  } catch (err) {
+    console.error("Error in editMessage:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ✅ DELETE MESSAGE (soft delete)
+export const deleteMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+    const message = await Message.findById(messageId);
+
+    if (!message) return res.status(404).json({ error: "Message not found" });
+
+    const isSender   = message.senderId.toString()   === userId.toString();
+    const isReceiver = message.receiverId?.toString() === userId.toString();
+
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ error: "Unauthorized to delete this message" });
+    }
+
+    if (isSender) {
+      message.isDeleted = true;
+      message.message   = "This message was deleted";
+      message.attachment = null;
+      await message.save();
+    } else {
+      if (!message.deletedFor) message.deletedFor = [];
+      if (!message.deletedFor.includes(userId)) {
+        message.deletedFor.push(userId);
+        await message.save();
+      }
+    }
+
+    res.json({ success: true, message: "Message deleted successfully" });
+  } catch (err) {
+    console.error("Error in deleteMessage:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ✅ UNREAD COUNT
+export const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const counts = await Message.aggregate([
+      {
+        $match: {
+          receiverId: userId,
+          status:     { $ne: "seen" },
+          isDeleted:  { $ne: true },
+          deletedFor: { $not: { $in: [userId] } },
+        },
+      },
+      { $group: { _id: "$senderId", count: { $sum: 1 } } },
+    ]);
+    const totalUnread = counts.reduce((sum, item) => sum + item.count, 0);
+    res.json({ bySender: counts, total: totalUnread });
+  } catch (err) {
+    console.error("Error in getUnreadCount:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ✅ MARK MESSAGES AS READ
+export const markAsRead = async (req, res) => {
+  try {
+    const { senderId } = req.params;
+    const userId = req.user._id;
+    const result = await Message.updateMany(
+      { senderId, receiverId: userId, status: { $ne: "seen" } },
+      { $set: { status: "seen", seenAt: new Date() } }
+    );
+    res.json({ success: true, modifiedCount: result.modifiedCount });
+  } catch (err) {
+    console.error("Error in markAsRead:", err);
+    res.status(500).json({ error: err.message });
   }
 };

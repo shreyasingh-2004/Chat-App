@@ -5,21 +5,52 @@ const messageSchema = new mongoose.Schema(
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null
+      required: true
     },
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null
+      ref: 'User'
     },
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Group',
-      default: null
+      ref: 'Group'
     },
     message: {
       type: String,
       default: ''
+    },
+    // ✅ FIXED: fileName (was "name") now matches what frontend sends
+    attachment: {
+      url:      { type: String },
+      type:     { type: String },   // "image" | "file" | "voice"
+      fileName: { type: String },   // ✅ was "name" — frontend sends "fileName"
+      size:     { type: Number },
+      mimeType: { type: String },
+    },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+      default: null
+    },
+    status: {
+      type: String,
+      enum: ['sent', 'delivered', 'seen', 'sending'],
+      default: 'sent'
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    deletedFor: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }],
+    isEdited: {
+      type: Boolean,
+      default: false
+    },
+    editedAt: {
+      type: Date
     },
     isSystemMessage: {
       type: Boolean,
@@ -27,30 +58,18 @@ const messageSchema = new mongoose.Schema(
     },
     systemMessageType: {
       type: String,
-      enum: ['member_added', 'member_removed', 'member_left', 'admin_promoted', 'admin_demoted', 'group_created', 'group_updated', 'group_deleted'],
-      default: null
+      enum: [
+        'member_added', 'member_removed', 'member_left',
+        'admin_promoted', 'admin_demoted', 'group_updated'
+      ]
     },
     affectedUser: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      default: null
-    },
-    status: {
-      type: String,
-      enum: ['sent', 'delivered', 'read'],
-      default: 'sent'
-    },
-    readAt: Date,
-    deliveredAt: Date,
-    isDeleted: {
-      type: Boolean,
-      default: false
+      ref: 'User'
     }
   },
   { timestamps: true }
 );
-
-messageSchema.index({ groupId: 1, createdAt: -1 });
 
 const Message = mongoose.model('Message', messageSchema);
 export default Message;
