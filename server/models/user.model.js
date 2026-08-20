@@ -43,7 +43,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Add index for faster queries
+// Add index
 userSchema.index({ username: 1 });
 
 const User = mongoose.model("User", userSchema);

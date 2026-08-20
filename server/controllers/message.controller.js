@@ -13,45 +13,14 @@ export const messagePopulate = [
   },
 ];
 
-// ✅ Visibility check
+// Visibility check
 export const isMessageVisibleTo = (message, userId) => {
   return !message.deletedFor?.some(
     (id) => id.toString() === userId.toString()
   );
 };
 
-// ✅ UPLOAD MEDIA (stores as base64 data URL inline — no external storage needed)
-export const uploadMedia = async (req, res) => {
-  try {
-    const { dataUrl, fileName, mimeType, mediaType } = req.body;
-
-    if (!dataUrl) {
-      return res.status(400).json({ error: "No file data provided" });
-    }
-
-    // Validate size — max 5 MB for inline storage
-    const base64Data = dataUrl.split(",")[1] || dataUrl;
-    const sizeBytes  = Buffer.byteLength(base64Data, "base64");
-    const maxSize    = 5 * 1024 * 1024; // 5 MB
-
-    if (sizeBytes > maxSize) {
-      return res.status(400).json({ error: "File too large. Maximum size is 5 MB." });
-    }
-
-    res.json({
-      url:      dataUrl,
-      fileName: fileName  || "attachment",
-      type:     mediaType || "file",
-      mimeType: mimeType  || "application/octet-stream",
-      size:     sizeBytes,
-    });
-  } catch (error) {
-    console.error("uploadMedia error:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ✅ SEND MESSAGE
+// SEND MESSAGE
 export const sendMessage = async (req, res) => {
   try {
     const { message, attachment, replyTo } = req.body;
@@ -93,7 +62,7 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-// ✅ GET MESSAGES (1:1) with pagination
+// GET MESSAGES (1:1) with pagination
 export const getMessages = async (req, res) => {
   try {
     const { id } = req.params;
@@ -140,7 +109,7 @@ export const getMessages = async (req, res) => {
   }
 };
 
-// ✅ GET GROUP MESSAGES with pagination
+// GET GROUP MESSAGES with pagination
 export const getGroupMessages = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -172,12 +141,12 @@ export const getGroupMessages = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ getGroupMessages error:", error.message);
+    console.error("getGroupMessages error:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
 
-// ✅ EDIT MESSAGE
+//EDIT MESSAGE
 export const editMessage = async (req, res) => {
   try {
     const { messageId, newText } = req.body;
@@ -199,7 +168,7 @@ export const editMessage = async (req, res) => {
   }
 };
 
-// ✅ DELETE MESSAGE (soft delete)
+//DELETE MESSAGE (soft delete)
 export const deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -235,7 +204,7 @@ export const deleteMessage = async (req, res) => {
   }
 };
 
-// ✅ UNREAD COUNT
+// UNREAD COUNT
 export const getUnreadCount = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -258,7 +227,7 @@ export const getUnreadCount = async (req, res) => {
   }
 };
 
-// ✅ MARK MESSAGES AS READ
+// MARK MESSAGES AS READ
 export const markAsRead = async (req, res) => {
   try {
     const { senderId } = req.params;

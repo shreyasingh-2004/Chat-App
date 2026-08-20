@@ -18,10 +18,8 @@ const messagePopulate = [
   }
 ];
 
-// helper to export online users map
 export const getOnlineUsersMap = () => onlineUsers;
 
-// helper to get receiver socket
 const getReceiverSocketIds = (userId) => {
   return onlineUsers.get(userId) || new Set();
 };
@@ -32,9 +30,7 @@ export const setupSocket = (server, corsOptions) => {
     transports: ['websocket', 'polling']
   });
 
-  // =============================
   // AUTH
-  // =============================
   io.use(async (socket, next) => {
     try {
       let token = socket.handshake.auth.token;
@@ -57,14 +53,12 @@ export const setupSocket = (server, corsOptions) => {
     }
   });
 
-  // =============================
   // CONNECTION
-  // =============================
   io.on('connection', async (socket) => {
     const user = socket.user;
     const userId = user._id.toString();
 
-    console.log(`✅ CONNECTED: ${user.fullName}`);
+    console.log(`CONNECTED: ${user.fullName}`);
 
     // store online users
     if (!onlineUsers.has(userId)) {
@@ -75,22 +69,19 @@ export const setupSocket = (server, corsOptions) => {
 
     io.emit('getOnlineUsers', Array.from(onlineUsers.keys()));
 
-    // =============================
+
     // JOIN GROUPS
-    // =============================
     try {
       const groups = await Group.find({ 'members.userId': userId });
       for (const group of groups) {
         socket.join(`group_${group._id}`);
-        console.log(`✅ ${user.fullName} joined room group_${group._id}`);
+        console.log(`${user.fullName} joined room group_${group._id}`);
       }
     } catch (error) {
       console.error('Error joining groups:', error);
     }
 
-    // =============================
     // JOIN GROUP ROOM (when a new member is added mid-session)
-    // =============================
     socket.on('joinGroupRoom', async ({ groupId }) => {
       try {
         const group = await Group.findById(groupId);
@@ -99,9 +90,9 @@ export const setupSocket = (server, corsOptions) => {
         const isMember = group.members.some(m => m.userId.toString() === userId);
         if (isMember) {
           socket.join(`group_${groupId}`);
-          console.log(`✅ ${user.fullName} joined room group_${groupId}`);
+          console.log(`${user.fullName} joined room group_${groupId}`);
           
-          // Optionally send recent messages to the new member
+          //send recent messages to the new member
           const recentMessages = await Message.find({ groupId })
             .sort({ createdAt: -1 })
             .limit(50)
@@ -115,9 +106,8 @@ export const setupSocket = (server, corsOptions) => {
       }
     });
 
-    // =============================
+
     // PERSONAL MESSAGE
-    // =============================
     socket.on('sendMessage', async (data, callback) => {
       try {
         const { receiverId, message, attachment, replyTo } = data;
@@ -153,9 +143,8 @@ export const setupSocket = (server, corsOptions) => {
 
         await conversation.save();
 
-        // =============================
+    
         // SEND TO RECEIVER
-        // =============================
         const receiverSockets = getReceiverSocketIds(receiverId);
 
         if (receiverSockets.size > 0) {
@@ -171,14 +160,13 @@ export const setupSocket = (server, corsOptions) => {
         callback?.({ success: true, message: savedMessage });
 
       } catch (error) {
-        console.error('❌ sendMessage error:', error);
+        console.error('sendMessage error:', error);
         callback?.({ success: false, error: error.message });
       }
     });
 
-    // =============================
-    // MARK AS SEEN - WITH DEBOUNCE
-    // =============================
+
+    // MARK AS SEEN
     socket.on("markAsSeen", async ({ chatUserId }) => {
       try {
         // Clear existing timeout for this user pair
@@ -211,19 +199,43 @@ export const setupSocket = (server, corsOptions) => {
 
             markAsSeenDebounce.delete(debounceKey);
           } catch (err) {
-            console.error('❌ markAsSeen timeout error:', err);
+            console.error('markAsSeen timeout error:', err);
           }
         }, 500); // Wait 500ms before executing
 
         markAsSeenDebounce.set(debounceKey, timeoutId);
       } catch (error) {
-        console.error('❌ markAsSeen error:', error);
+        console.error('markAsSeen error:', error);
+      }
+    });
+    
+    // Typing INDICATORS
+    socket.on('typing', ({ receiverId, groupId }) => {
+      if (groupId) {
+        socket.to(`group_${groupId}`).emit('typing', {
+          senderId: userId,
+          groupId,
+        });
+      } else if (receiverId) {
+        getReceiverSocketIds(receiverId).forEach((id) => {
+          io.to(id).emit('typing', { senderId: userId });
+        });
+      }
+    });
+    socket.on('stopTyping', ({ receiverId, groupId }) => {
+      if (groupId) {
+        socket.to(`group_${groupId}`).emit('stopTyping', {
+          senderId: userId,
+          groupId,
+        });
+      } else if (receiverId) {
+        getReceiverSocketIds(receiverId).forEach((id) => {
+          io.to(id).emit('stopTyping', { senderId: userId });
+        });
       }
     });
 
-    // =============================
     // GROUP MESSAGE
-    // =============================
     socket.on('sendGroupMessage', async (data, callback) => {
       try {
         const { groupId, message, attachment, replyTo, tempId } = data;
@@ -255,14 +267,14 @@ export const setupSocket = (server, corsOptions) => {
         callback?.({ success: true, message: savedMessage, tempId });
 
       } catch (error) {
-        console.error('❌ sendGroupMessage error:', error);
+        console.error('sendGroupMessage error:', error);
         callback?.({ success: false, error: error.message });
       }
     });
 
-    // =============================
+
     // EDIT MESSAGE
-    // =============================
+
     socket.on('editMessage', async ({ messageId, message }, callback) => {
       try {
         const updated = await Message.findOneAndUpdate(
@@ -284,14 +296,14 @@ export const setupSocket = (server, corsOptions) => {
         callback?.({ success: true, message: updated });
 
       } catch (error) {
-        console.error('❌ editMessage error:', error);
+        console.error('editMessage error:', error);
         callback?.({ success: false, error: error.message });
       }
     });
 
-    // =============================
+
     // DELETE MESSAGE
-    // =============================
+
     socket.on('deleteMessage', async ({ messageId, mode }, callback) => {
       try {
         const message = await Message.findById(messageId);
@@ -329,14 +341,14 @@ export const setupSocket = (server, corsOptions) => {
 
         callback?.({ success: true });
       } catch (error) {
-        console.error('❌ deleteMessage error:', error);
+        console.error('deleteMessage error:', error);
         callback?.({ success: false, error: error.message });
       }
     });
 
-    // =============================
+
     // DISCONNECT
-    // =============================
+
     socket.on("disconnect", async () => {
       try {
         await User.findByIdAndUpdate(socket.user._id, {
@@ -360,9 +372,9 @@ export const setupSocket = (server, corsOptions) => {
         // Emit updated online users
         io.emit('getOnlineUsers', Array.from(onlineUsers.keys()));
         
-        console.log(`❌ DISCONNECTED: ${socket.user.fullName}`);
+        console.log(`DISCONNECTED: ${socket.user.fullName}`);
       } catch (error) {
-        console.error('❌ disconnect error:', error);
+        console.error('disconnect error:', error);
       }
     });
   });

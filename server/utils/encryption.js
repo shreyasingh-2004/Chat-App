@@ -26,7 +26,7 @@ const decryptMessage = (encryptedText) => {
   }
 };
 
-// Encrypt message metadata (optional)
+// Encrypt message metadata
 const encryptMetadata = (data) => {
   try {
     return CryptoJS.AES.encrypt(JSON.stringify(data), ENCRYPTION_KEY).toString();

@@ -19,11 +19,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
-    // ✅ FIXED: fileName (was "name") now matches what frontend sends
     attachment: {
       url:      { type: String },
-      type:     { type: String },   // "image" | "file" | "voice"
-      fileName: { type: String },   // ✅ was "name" — frontend sends "fileName"
+      type:     { type: String },   
+      fileName: { type: String },   
       size:     { type: Number },
       mimeType: { type: String },
     },
