@@ -210,7 +210,7 @@ export const setupSocket = (server, corsOptions) => {
     });
     
     // Typing INDICATORS
-    socket.on('typing', ({ receiverId, groupId }) => {
+     socket.on('typing', ({ receiverId, groupId }) => {
       if (groupId) {
         socket.to(`group_${groupId}`).emit('typing', {
           senderId: userId,

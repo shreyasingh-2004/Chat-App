@@ -6,7 +6,6 @@ import useConversation from "../../zustand/useConversation";
 import useSendMessage from "../../hooks/useSendMessage";
 import useSendGroupMessage from "../../hooks/useSendGroupMessage";
 import { apiFetch } from "../../utils/api";
-import VoiceRecorder from "./VoiceRecorder";
 
 const fileToDataUrl = (file) =>
   new Promise((resolve, reject) => {
@@ -18,6 +17,7 @@ const fileToDataUrl = (file) =>
 
 const getMediaType = (file) => {
   if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
   return "file";
 };
 
@@ -167,69 +167,6 @@ const MessageInput = () => {
     }
   };
 
-  const handleVoiceRecording = async (blob, mimeType) => {
-    if (!selectedConversation) {
-      toast.error("No conversation selected");
-      return;
-    }
-
-    if (!socket) {
-      toast.error("Not connected to server");
-      return;
-    }
-
-    setUploading(true);
-
-    try {
-      const dataUrl = await fileToDataUrl(blob);
-      const fileName = `voice-${Date.now()}.${
-        mimeType.includes("webm") ? "webm" : "m4a"
-      }`;
-
-      const res = await apiFetch("/api/messages/upload-media", {
-        method: "POST",
-        body: JSON.stringify({
-          dataUrl,
-          fileName,
-          mimeType,
-          size: blob.size,
-          mediaType: "voice",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Voice upload failed");
-      }
-
-      const voiceAttachment = {
-        url: data.url,
-        fileName: data.fileName,
-        type: "voice",
-        size: data.size,
-        mimeType: data.mimeType,
-      };
-
-      const options = {
-        attachment: voiceAttachment,
-        replyTo: replyTo?._id || null,
-      };
-
-      if (isGroupChat) {
-        await sendGroupMessage("", selectedConversation._id, options);
-      } else {
-        await sendMessage("", selectedConversation._id, options);
-      }
-
-      clearReplyTo();
-    } catch (error) {
-      toast.error(error.message || "Failed to send voice message");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -248,7 +185,7 @@ const MessageInput = () => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.txt,.zip,.csv"
+        accept=".pdf,.doc,.docx,.txt,.zip,.csv,.mp4,.mov,.mkv,.avi,.webm,.mp3,.wav"
         className="hidden"
         tabIndex="-1"
         onChange={handleFileChange}
@@ -282,7 +219,13 @@ const MessageInput = () => {
 
           {attachment && (
             <PreviewRow
-              label={attachment.type === "image" ? "Image" : "File"}
+              label={
+                attachment.type === "image"
+                  ? "Image"
+                  : attachment.type === "video"
+                  ? "Video"
+                  : "File"
+              }
               value={attachment.fileName}
               onClear={() => setAttachment(null)}
             />
@@ -309,7 +252,7 @@ const MessageInput = () => {
           tabIndex="-1"
           onClick={() => fileInputRef.current?.click()}
           className="composer-tool"
-          title="Attach file"
+          title="Attach file or video"
         >
           <Paperclip className="h-4 w-4" />
         </button>
@@ -334,11 +277,6 @@ const MessageInput = () => {
           }
           className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-gray-900 dark:text-gray-100
             outline-none placeholder:text-gray-400"
-          disabled={loading}
-        />
-
-        <VoiceRecorder
-          onRecordingComplete={handleVoiceRecording}
           disabled={loading}
         />
 

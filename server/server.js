@@ -7,21 +7,23 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-
 import connectToMongoDB from './db/connectToMongoDB.js';
 import { setupSocket } from './socket/socket.js';
 import validateEnv from './validateEnv.js';
-
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import groupRoutes from './routes/group.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
-
 import { protectRoute } from './middleware/protectRoute.js';
 import { errorHandler } from "./middleware/error.middleware.js";
 
 dotenv.config();
+// console.log('Cloudinary config:', {
+//   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//   api_key: process.env.CLOUDINARY_API_KEY ? 'loaded' : 'MISSING',
+//   api_secret: process.env.CLOUDINARY_API_SECRET ? 'loaded' : 'MISSING',
+// });
 validateEnv();
 
 const app = express();
@@ -107,6 +109,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/messages', uploadRoutes);
 
 // TEST ROUTES
 app.get('/api/test', (req, res) => {

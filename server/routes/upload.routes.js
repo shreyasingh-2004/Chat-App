@@ -22,9 +22,9 @@ router.post("/upload-media", protectRoute, async (req, res) => {
       return res.status(400).json({ error: "No file data provided" });
     }
 
-    // 5 MB limit
-    if (size && size > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: "File too large. Max size is 5MB" });
+    // 25 MB limit
+    if (size && size > 25 * 1024 * 1024) {
+      return res.status(400).json({ error: "File too large. Max size is 25MB" });
     }
 
     // Validate it's a proper data URL
@@ -35,8 +35,11 @@ router.post("/upload-media", protectRoute, async (req, res) => {
 
     // Determine Cloudinary resource type
     const isImage = mediaType === "image" || mimeType?.startsWith("image/");
+    const isVideo = mediaType === "video" || mimeType?.startsWith("video/");
     const isVoice = mediaType === "voice" || mimeType?.startsWith("audio/");
-    const resourceType = isImage ? "image" : isVoice ? "video" : "raw";
+    
+    // Cloudinary requires resource_type to be "video" for both video and audio
+    const resourceType = isImage ? "image" : (isVideo || isVoice) ? "video" : "raw";
 
     // Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(dataUrl, {
@@ -54,7 +57,7 @@ router.post("/upload-media", protectRoute, async (req, res) => {
       fileName: fileName || "file",
       size: uploadResult.bytes || size,
       mimeType: mimeType || "",
-      type: isImage ? 'image' : isVoice ? 'voice' : 'file', 
+      type: isImage ? 'image' : isVideo ? 'video' : isVoice ? 'voice' : 'file', 
     });
   } catch (error) {
     console.error("Upload error:", error);
