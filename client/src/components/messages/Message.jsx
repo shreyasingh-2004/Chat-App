@@ -10,6 +10,18 @@ import { extractTime } from "../../utils/extractTime";
 import useConversation from "../../zustand/useConversation";
 import UserAvatar from "../common/UserAvatar";
 
+const formatBytes = (bytes) => {
+  if (!bytes && bytes !== 0) return "";
+  const units = ["B", "KB", "MB", "GB"];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024;
+    i++;
+  }
+  return `${n.toFixed(i > 0 && n < 10 ? 1 : 0)} ${units[i]}`;
+};
+
 const Message = ({ message, isGroupMessage = false }) => {
   const { authUser } = useAuthContext();
   const { socket } = useSocketContext();
@@ -96,6 +108,21 @@ const Message = ({ message, isGroupMessage = false }) => {
       );
     }
 
+    if (attachment.type === "video") {
+      return (
+        <div className="mt-2 overflow-hidden rounded-xl border border-black/10 dark:border-white/10 bg-black">
+          <video
+            controls
+            preload="metadata"
+            poster={attachment.thumbnailUrl}
+            className="max-h-72 w-full"
+          >
+            <source src={attachment.url} type={attachment.mimeType || "video/mp4"} />
+          </video>
+        </div>
+      );
+    }
+
     if (attachment.type === "voice") {
       return (
         <div className="mt-2 rounded-xl border border-black/10 bg-white/60 p-2 dark:border-white/10 dark:bg-gray-950/30">
@@ -109,12 +136,18 @@ const Message = ({ message, isGroupMessage = false }) => {
         href={attachment.url}
         target="_blank"
         rel="noreferrer"
+        download={attachment.fileName}
         className="mt-2 flex max-w-xs items-center gap-3 rounded-xl border border-black/10 bg-white/70 p-3 text-sm hover:bg-white dark:border-white/10 dark:bg-gray-950/30 dark:hover:bg-gray-900 transition-colors"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-white">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-white">
           <FileText className="h-4 w-4" />
         </div>
-        <span className="min-w-0 flex-1 truncate">{attachment.fileName || "Download file"}</span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{attachment.fileName || "Download file"}</div>
+          {attachment.size ? (
+            <div className="text-xs text-gray-400">{formatBytes(attachment.size)}</div>
+          ) : null}
+        </div>
         <Download className="h-4 w-4 flex-shrink-0 opacity-60" />
       </a>
     );
@@ -253,16 +286,20 @@ const ActionCluster = ({
       const rect = buttonRef.current.getBoundingClientRect();
       const menuWidth = 176; // w-44 = 176px
       const menuHeight = 200;
-      const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
-      
+
       let top = rect.top - menuHeight - 8;
       let left = align === "right" ? rect.right - menuWidth : rect.left;
-      
+
       if (top < 10) {
         top = rect.bottom + 8;
       }
-      
+
+      // clamp so the menu doesn't overflow the bottom of the viewport
+      if (top + menuHeight > window.innerHeight - 10) {
+        top = window.innerHeight - menuHeight - 10;
+      }
+
       if (left + menuWidth > viewportWidth - 10) {
         left = viewportWidth - menuWidth - 10;
       }

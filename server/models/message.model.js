@@ -20,11 +20,13 @@ const messageSchema = new mongoose.Schema(
       default: ''
     },
     attachment: {
-      url:      { type: String },
-      type:     { type: String },   
-      fileName: { type: String },   
-      size:     { type: Number },
-      mimeType: { type: String },
+      url:          { type: String },
+      type:         { type: String },
+      fileName:     { type: String },
+      size:         { type: Number },
+      mimeType:     { type: String },
+      thumbnailUrl: { type: String },
+      duration:     { type: Number },
     },
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
