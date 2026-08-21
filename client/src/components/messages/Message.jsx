@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Check, Copy, Download,
-  Edit3, FileText, MoreHorizontal, Reply, Trash2, X,
+  Check,
+  CheckCheck,
+  Copy,
+  Download,
+  Edit3,
+  FileText,
+  MoreHorizontal,
+  Reply,
+  Trash2,
+  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuthContext } from "../../context/AuthContext";
@@ -12,13 +20,16 @@ import UserAvatar from "../common/UserAvatar";
 
 const formatBytes = (bytes) => {
   if (!bytes && bytes !== 0) return "";
+
   const units = ["B", "KB", "MB", "GB"];
   let n = bytes;
   let i = 0;
+
   while (n >= 1024 && i < units.length - 1) {
     n /= 1024;
     i++;
   }
+
   return `${n.toFixed(i > 0 && n < 10 ? 1 : 0)} ${units[i]}`;
 };
 
@@ -26,17 +37,22 @@ const Message = ({ message, isGroupMessage = false }) => {
   const { authUser } = useAuthContext();
   const { socket } = useSocketContext();
   const { setReplyTo } = useConversation();
+
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message?.message || "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState(null);
+
   const messageId = message?._id;
 
   if (!message || !authUser) return null;
 
   const messageSenderId = message.senderId?._id || message.senderId;
   const fromMe = String(messageSenderId) === String(authUser._id);
-  const senderName = message.senderId?.fullName || message.senderId?.username;
+
+  const senderName =
+    message.senderId?.fullName || message.senderId?.username;
+
   const deleted = message.isDeleted;
 
   const emitWithAck = (event, payload) =>
@@ -45,9 +61,13 @@ const Message = ({ message, isGroupMessage = false }) => {
         reject(new Error("Socket not connected"));
         return;
       }
+
       socket.emit(event, payload, (response) => {
-        if (response?.success) resolve(response);
-        else reject(new Error(response?.error || "Action failed"));
+        if (response?.success) {
+          resolve(response);
+        } else {
+          reject(new Error(response?.error || "Action failed"));
+        }
       });
     });
 
@@ -62,8 +82,13 @@ const Message = ({ message, isGroupMessage = false }) => {
 
   const handleEdit = async () => {
     if (!draft.trim()) return;
+
     try {
-      await emitWithAck("editMessage", { messageId: message._id, message: draft });
+      await emitWithAck("editMessage", {
+        messageId: message._id,
+        message: draft,
+      });
+
       setEditing(false);
       setMenuOpen(false);
       setActiveMenuId(null);
@@ -74,7 +99,11 @@ const Message = ({ message, isGroupMessage = false }) => {
 
   const handleDelete = async (mode) => {
     try {
-      await emitWithAck("deleteMessage", { messageId: message._id, mode });
+      await emitWithAck("deleteMessage", {
+        messageId: message._id,
+        mode,
+      });
+
       setMenuOpen(false);
       setActiveMenuId(null);
     } catch (error) {
@@ -89,6 +118,7 @@ const Message = ({ message, isGroupMessage = false }) => {
 
   const renderAttachment = () => {
     const attachment = message.attachment;
+
     if (!attachment?.url || deleted) return null;
 
     if (attachment.type === "image") {
@@ -117,7 +147,10 @@ const Message = ({ message, isGroupMessage = false }) => {
             poster={attachment.thumbnailUrl}
             className="max-h-72 w-full"
           >
-            <source src={attachment.url} type={attachment.mimeType || "video/mp4"} />
+            <source
+              src={attachment.url}
+              type={attachment.mimeType || "video/mp4"}
+            />
           </video>
         </div>
       );
@@ -126,7 +159,11 @@ const Message = ({ message, isGroupMessage = false }) => {
     if (attachment.type === "voice") {
       return (
         <div className="mt-2 rounded-xl border border-black/10 bg-white/60 p-2 dark:border-white/10 dark:bg-gray-950/30">
-          <audio controls src={attachment.url} className="h-9 w-full" />
+          <audio
+            controls
+            src={attachment.url}
+            className="h-9 w-full"
+          />
         </div>
       );
     }
@@ -142,19 +179,30 @@ const Message = ({ message, isGroupMessage = false }) => {
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 text-white">
           <FileText className="h-4 w-4" />
         </div>
+
         <div className="min-w-0 flex-1">
-          <div className="truncate">{attachment.fileName || "Download file"}</div>
+          <div className="truncate">
+            {attachment.fileName || "Download file"}
+          </div>
+
           {attachment.size ? (
-            <div className="text-xs text-gray-400">{formatBytes(attachment.size)}</div>
+            <div className="text-xs text-gray-400">
+              {formatBytes(attachment.size)}
+            </div>
           ) : null}
         </div>
+
         <Download className="h-4 w-4 flex-shrink-0 opacity-60" />
       </a>
     );
   };
 
   return (
-    <div className={`group mb-3 flex items-end gap-2 px-4 ${fromMe ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`group mb-3 flex items-end gap-2 px-4 ${
+        fromMe ? "justify-end" : "justify-start"
+      }`}
+    >
       {!fromMe && isGroupMessage && (
         <UserAvatar
           src={message.senderId?.profilePic}
@@ -178,13 +226,21 @@ const Message = ({ message, isGroupMessage = false }) => {
             setActiveMenuId(null);
           }}
           onCopy={handleCopy}
-          onEdit={() => { setEditing(true); setMenuOpen(false); setActiveMenuId(null); }}
+          onEdit={() => {
+            setEditing(true);
+            setMenuOpen(false);
+            setActiveMenuId(null);
+          }}
           onDeleteMe={() => handleDelete("me")}
           onDeleteEveryone={() => handleDelete("everyone")}
         />
       )}
 
-      <div className={`max-w-[78%] sm:max-w-[68%] ${fromMe ? "order-2" : "order-1"}`}>
+      <div
+        className={`max-w-[78%] sm:max-w-[68%] ${
+          fromMe ? "order-2" : "order-1"
+        }`}
+      >
         {isGroupMessage && !fromMe && senderName && (
           <div className="mb-1 ml-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-400">
             {senderName}
@@ -192,20 +248,26 @@ const Message = ({ message, isGroupMessage = false }) => {
         )}
 
         {message.replyTo && (
-          <div className={`mb-1.5 rounded-xl border-l-2 px-3 py-2 text-xs ${
-            fromMe
-              ? "border-cyan-300/70 bg-white/10 text-white/80"
-              : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
-          }`}>
+          <div
+            className={`mb-1.5 rounded-xl border-l-2 px-3 py-2 text-xs ${
+              fromMe
+                ? "border-cyan-300/70 bg-white/10 text-white/80"
+                : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
+            }`}
+          >
             <span className="line-clamp-2">
-              {message.replyTo.message || message.replyTo.attachment?.fileName || "Attachment"}
+              {message.replyTo.message ||
+                message.replyTo.attachment?.fileName ||
+                "Attachment"}
             </span>
           </div>
         )}
 
         <div className={fromMe ? "bubble-sent" : "bubble-recv"}>
           {deleted ? (
-            <p className="text-sm italic opacity-60">This message was deleted</p>
+            <p className="text-sm italic opacity-60">
+              This message was deleted
+            </p>
           ) : editing ? (
             <div className="flex min-w-56 items-center gap-2">
               <input
@@ -214,6 +276,7 @@ const Message = ({ message, isGroupMessage = false }) => {
                 className="min-w-0 flex-1 rounded-lg border border-indigo-300 bg-white px-2 py-1 text-sm text-gray-900 outline-none focus:border-indigo-500"
                 autoFocus
               />
+
               <button
                 type="button"
                 onClick={handleEdit}
@@ -222,6 +285,7 @@ const Message = ({ message, isGroupMessage = false }) => {
               >
                 <Check className="h-4 w-4" />
               </button>
+
               <button
                 type="button"
                 onClick={() => setEditing(false)}
@@ -234,20 +298,56 @@ const Message = ({ message, isGroupMessage = false }) => {
           ) : (
             <>
               {message.message && (
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.message}</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                  {message.message}
+                </p>
               )}
+
               {renderAttachment()}
+
               {message.isEdited && (
-                <span className="mt-1 block text-[10px] uppercase tracking-wide opacity-50">edited</span>
+                <span className="mt-1 block text-[10px] uppercase tracking-wide opacity-50">
+                  edited
+                </span>
               )}
             </>
           )}
         </div>
 
-        <div className={`mt-1 flex items-center gap-1 ${fromMe ? "justify-end" : "justify-start"}`}>
+        {/* Timestamp + Read Receipt */}
+        <div
+          className={`mt-1 flex items-center gap-1 ${
+            fromMe ? "justify-end" : "justify-start"
+          }`}
+        >
           <span className="text-[11px] text-gray-400 dark:text-gray-500">
             {extractTime(message.createdAt)}
           </span>
+
+          {fromMe && !deleted && (
+            <span
+              className={
+                message.status === "seen"
+                  ? "text-sky-300"
+                  : "text-white/50"
+              }
+              title={
+                message.status === "seen"
+                  ? "Seen"
+                  : message.status === "delivered"
+                    ? "Delivered"
+                    : "Sent"
+              }
+            >
+              {message.status === "seen" ? (
+                <CheckCheck className="h-3.5 w-3.5" />
+              ) : message.status === "delivered" ? (
+                <CheckCheck className="h-3.5 w-3.5" />
+              ) : (
+                <Check className="h-3.5 w-3.5" />
+              )}
+            </span>
+          )}
         </div>
       </div>
 
@@ -272,30 +372,43 @@ const Message = ({ message, isGroupMessage = false }) => {
   );
 };
 
-const ActionCluster = ({ 
-  align, open, setOpen, toggleMenu,
-  canEdit, canCopy,
-  onReply, onCopy, onEdit, onDeleteMe, onDeleteEveryone,
+const ActionCluster = ({
+  align,
+  open,
+  setOpen,
+  toggleMenu,
+  canEdit,
+  canCopy,
+  onReply,
+  onCopy,
+  onEdit,
+  onDeleteMe,
+  onDeleteEveryone,
 }) => {
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [menuPosition, setMenuPosition] = useState({
+    top: 0,
+    left: 0,
+  });
 
   useEffect(() => {
     if (open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 176; // w-44 = 176px
+      const menuWidth = 176;
       const menuHeight = 200;
       const viewportWidth = window.innerWidth;
 
       let top = rect.top - menuHeight - 8;
-      let left = align === "right" ? rect.right - menuWidth : rect.left;
+      let left =
+        align === "right"
+          ? rect.right - menuWidth
+          : rect.left;
 
       if (top < 10) {
         top = rect.bottom + 8;
       }
 
-      // clamp so the menu doesn't overflow the bottom of the viewport
       if (top + menuHeight > window.innerHeight - 10) {
         top = window.innerHeight - menuHeight - 10;
       }
@@ -303,30 +416,47 @@ const ActionCluster = ({
       if (left + menuWidth > viewportWidth - 10) {
         left = viewportWidth - menuWidth - 10;
       }
+
       if (left < 10) {
         left = 10;
       }
-      
+
       setMenuPosition({ top, left });
     }
   }, [open, align]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target) &&
-          buttonRef.current && !buttonRef.current.contains(event.target)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target)
+      ) {
         setOpen(false);
       }
     };
-    
+
     if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      document.addEventListener(
+        "mousedown",
+        handleClickOutside,
+      );
+
+      return () =>
+        document.removeEventListener(
+          "mousedown",
+          handleClickOutside,
+        );
     }
   }, [open, setOpen]);
 
   return (
-    <div className={`relative order-1 mb-5 ${align === "right" ? "ml-1" : "mr-1"}`}>
+    <div
+      className={`relative order-1 mb-5 ${
+        align === "right" ? "ml-1" : "mr-1"
+      }`}
+    >
       <button
         ref={buttonRef}
         type="button"
@@ -343,7 +473,7 @@ const ActionCluster = ({
       </button>
 
       {open && (
-        <div 
+        <div
           ref={menuRef}
           className="fixed z-[100] w-44 overflow-hidden rounded-xl
             border border-gray-200 dark:border-gray-700
@@ -354,13 +484,44 @@ const ActionCluster = ({
             left: `${menuPosition.left}px`,
           }}
         >
-          <MenuItem icon={Reply} label="Reply" onClick={onReply} />
-          {canCopy && <MenuItem icon={Copy} label="Copy text" onClick={onCopy} />}
-          {canEdit && <MenuItem icon={Edit3} label="Edit" onClick={onEdit} />}
+          <MenuItem
+            icon={Reply}
+            label="Reply"
+            onClick={onReply}
+          />
+
+          {canCopy && (
+            <MenuItem
+              icon={Copy}
+              label="Copy text"
+              onClick={onCopy}
+            />
+          )}
+
+          {canEdit && (
+            <MenuItem
+              icon={Edit3}
+              label="Edit"
+              onClick={onEdit}
+            />
+          )}
+
           <div className="my-1 border-t border-gray-100 dark:border-gray-800" />
-          <MenuItem icon={Trash2} label="Delete for me" onClick={onDeleteMe} danger />
+
+          <MenuItem
+            icon={Trash2}
+            label="Delete for me"
+            onClick={onDeleteMe}
+            danger
+          />
+
           {onDeleteEveryone && (
-            <MenuItem icon={X} label="Delete for everyone" onClick={onDeleteEveryone} danger />
+            <MenuItem
+              icon={X}
+              label="Delete for everyone"
+              onClick={onDeleteEveryone}
+              danger
+            />
           )}
         </div>
       )}
@@ -368,15 +529,22 @@ const ActionCluster = ({
   );
 };
 
-const MenuItem = ({ icon: Icon, label, onClick, danger = false }) => (
+const MenuItem = ({
+  icon: Icon,
+  label,
+  onClick,
+  danger = false,
+}) => (
   <button
     type="button"
     onClick={onClick}
     className={`flex w-full items-center gap-2.5 px-3 py-2 text-left
       hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-100
-      ${danger
-        ? "text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-        : "text-gray-700 dark:text-gray-200"}`}
+      ${
+        danger
+          ? "text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+          : "text-gray-700 dark:text-gray-200"
+      }`}
   >
     <Icon className="h-4 w-4 flex-shrink-0" />
     <span>{label}</span>

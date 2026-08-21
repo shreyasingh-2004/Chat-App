@@ -170,8 +170,8 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-md my-8 animate-slide-up">
+    <div className="min-h-screen h-screen overflow-y-auto bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950 flex items-start justify-center p-4 sm:p-6">
+      <div className="w-full max-w-md my-4 sm:my-8 animate-slide-up">
         <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8">
           {/* Decorative elements */}
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-indigo-400 to-cyan-400 rounded-full blur-3xl opacity-20 animate-float" />
